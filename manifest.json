@@ -1,0 +1,10 @@
+{
+  "name": "النسر للتجارة",
+  "short_name": "النسر",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f3f6f8",
+  "theme_color": "#142b3b",
+  "lang": "ar",
+  "dir": "rtl"
+}
