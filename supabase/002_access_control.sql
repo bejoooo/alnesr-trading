@@ -101,7 +101,7 @@ begin
     end if;
   end if;
 
-  if tg_op = 'DELETE' or (tg_op = 'UPDATE' and old.role = 'owner' and new.role <> 'owner') then
+  if tg_op = 'DELETE' or (tg_op = 'UPDATE' and old.role = 'owner' and (new.role <> 'owner' or new.active = false)) then
     if not exists (
       select 1 from public.business_members m
       where m.business_id = old.business_id
