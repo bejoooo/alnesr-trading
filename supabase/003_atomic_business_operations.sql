@@ -137,6 +137,7 @@ begin
     if not public.has_business_permission(p_business_id,'cash.create') then
       raise exception 'Not authorized to record the cash payment';
     end if;
+    perform pg_advisory_xact_lock(hashtextextended(p_business_id::text,0));
     if coalesce((select sum(case when direction='in' then amount else -amount end) from public.cash_transactions where business_id=p_business_id),0) < p_paid_amount then
       raise exception 'Insufficient cash balance for this supplier payment';
     end if;
@@ -360,6 +361,9 @@ begin
   end if;
 
   if lower(p_method)='cash' then
+    if v_direction='out' then
+      perform pg_advisory_xact_lock(hashtextextended(p_business_id::text,0));
+    end if;
     if v_direction='out' and coalesce((select sum(case when direction='in' then amount else -amount end) from public.cash_transactions where business_id=p_business_id),0) < p_amount then
       raise exception 'Insufficient cash balance for this supplier payment';
     end if;
@@ -424,6 +428,7 @@ begin
   if coalesce(trim(p_name),'')='' or p_amount is null or p_amount<=0 then
     raise exception 'Expense name and positive amount are required';
   end if;
+  perform pg_advisory_xact_lock(hashtextextended(p_business_id::text,0));
   if coalesce((select sum(case when direction='in' then amount else -amount end) from public.cash_transactions where business_id=p_business_id),0) < p_amount then
     raise exception 'Insufficient cash balance for this expense';
   end if;
