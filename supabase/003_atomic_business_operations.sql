@@ -105,7 +105,7 @@ begin
       v_line_discount := v_discount - v_discount_used;
     else
       v_line_discount := case when v_subtotal = 0 then 0
-        else round(v_discount * v_line_gross / v_subtotal,2) end;
+        else least(round(v_discount * v_line_gross / v_subtotal,2), v_discount-v_discount_used) end;
       v_discount_used := v_discount_used + v_line_discount;
     end if;
     insert into public.purchase_items(
@@ -250,7 +250,7 @@ begin
       v_extra_discount := v_discount-v_discount_used;
     else
       v_extra_discount := case when v_gross-v_line_discounts=0 then 0
-        else round(v_discount*(v_line_gross-v_item_discount)/(v_gross-v_line_discounts),2) end;
+        else least(round(v_discount*(v_line_gross-v_item_discount)/(v_gross-v_line_discounts),2), v_discount-v_discount_used) end;
       v_discount_used := v_discount_used+v_extra_discount;
     end if;
     v_final_line_discount := v_item_discount+v_extra_discount;
