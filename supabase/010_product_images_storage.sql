@@ -17,7 +17,10 @@ create policy product_images_insert on storage.objects
 for insert to authenticated
 with check (
  bucket_id='product-images'
- and public.has_business_permission(((storage.foldername(name))[1])::uuid,'products.create')
+ and (
+  public.has_business_permission(((storage.foldername(name))[1])::uuid,'products.create')
+  or public.has_business_permission(((storage.foldername(name))[1])::uuid,'products.edit')
+ )
  and (storage.foldername(name))[2] is not null
 );
 
@@ -40,6 +43,5 @@ using (
  bucket_id='product-images'
  and (
   public.has_business_permission(((storage.foldername(name))[1])::uuid,'products.edit')
-  or public.has_business_permission(((storage.foldername(name))[1])::uuid,'products.create')
  )
 );
