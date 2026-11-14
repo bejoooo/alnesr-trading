@@ -17,7 +17,7 @@ $("newProductBtn").addEventListener("click",()=>openProductForm());$("cancelProd
 async function loadWorkspace(){message("globalMessage","جارٍ تحميل عضوياتك...");const {data:u,error:ue}=await client.auth.getUser();if(ue||!u.user){show("workspace",false);show("authPanel",true);return;}const {data,error}=await client.from("business_members").select("business_id,role,permissions,active,businesses(id,name,phone,address)").eq("user_id",u.user.id).eq("active",true);if(error)return fail(error);memberships=data||[];show("authPanel",false);show("workspace",true);if(!memberships.length){show("businessSetup",true);show("businessPicker",false);show("moduleShell",false);$("welcome").textContent="مرحبًا، "+u.user.email;$("memberRole").textContent="لا يوجد نشاط مرتبط بهذا الحساب بعد.";}else{show("businessSetup",false);show("moduleShell",true);const s=$("businessSelect");s.innerHTML=memberships.map(m=>{const b=Array.isArray(m.businesses)?m.businesses[0]:m.businesses;return '<option value="'+esc(m.business_id)+'">'+esc(b?.name||"نشاط")+'</option>';}).join("");show("businessPicker",memberships.length>1);activeBusinessId=activeBusinessId&&memberships.some(m=>m.business_id===activeBusinessId)?activeBusinessId:memberships[0].business_id;s.value=activeBusinessId;renderMembership();await loadProducts();}message("globalMessage","");}
 function roleLabel(r){return({owner:"مالك",admin:"مدير",manager:"مشرف",cashier:"كاشير",viewer:"مشاهدة فقط"})[r]||r;}
 function permission(key){const m=memberships.find(x=>x.business_id===activeBusinessId);if(!m)return false;if(m.role==="owner"||m.role==="admin")return true;if(Object.prototype.hasOwnProperty.call(m.permissions||{},key))return m.permissions[key]===true;const d={manager:["products.view","products.create","products.edit","parties.view","parties.create","parties.edit","purchases.view","purchases.create","purchases.edit","sales.view","sales.create","sales.edit","payments.view","payments.create","payments.record","inventory.view","inventory.create","expenses.view","expenses.create","expenses.edit","cash.view","cash.create","cash.deposit","cash.withdraw","settings.view"],cashier:["products.view","parties.view","parties.create","sales.view","sales.create","sales.edit","payments.view","payments.create","payments.record","inventory.view","cash.view","cash.create","cash.deposit","cash.withdraw"],viewer:["products.view","parties.view","purchases.view","sales.view","payments.view","inventory.view","expenses.view","cash.view","settings.view","audit.view"]};return(d[m.role]||[]).includes(key);}
-function renderMembership(){const m=memberships.find(x=>x.business_id===activeBusinessId);if(!m)return;const b=Array.isArray(m.businesses)?m.businesses[0]:m.businesses;$("welcome").textContent=b?.name||"النشاط";$("memberRole").textContent="دور الحساب: "+roleLabel(m.role)+" · العملة: EGP";const allowed=Object.entries(m.permissions||{}).filter(([,v])=>v===true).map(([k])=>k);$("permissionSummary").innerHTML="<p class='muted'>الصلاحيات الإضافية المسجلة:</p>"+(allowed.length?allowed.map(x=>'<span class="permission">'+esc(x)+'</span>').join(""):"<span class='muted'>تُطبّق الصلاحيات الافتراضية للدور من قاعدة البيانات.</span>");$("newProductBtn").classList.toggle("hidden",!permission("products.create"));$("showCashTab").classList.toggle("hidden",!permission("cash.view")&&!permission("expenses.view"));$("showReportsTab").classList.toggle("hidden",!canOpenReports());}
+function renderMembership(){const m=memberships.find(x=>x.business_id===activeBusinessId);if(!m)return;const b=Array.isArray(m.businesses)?m.businesses[0]:m.businesses;$("welcome").textContent=b?.name||"النشاط";$("memberRole").textContent="دور الحساب: "+roleLabel(m.role)+" · العملة: EGP";const allowed=Object.entries(m.permissions||{}).filter(([,v])=>v===true).map(([k])=>k);$("permissionSummary").innerHTML="<p class='muted'>الصلاحيات الإضافية المسجلة:</p>"+(allowed.length?allowed.map(x=>'<span class="permission">'+esc(x)+'</span>').join(""):"<span class='muted'>تُطبّق الصلاحيات الافتراضية للدور من قاعدة البيانات.</span>");$("newProductBtn").classList.toggle("hidden",!permission("products.create"));$("showCashTab").classList.toggle("hidden",!permission("cash.view")&&!permission("expenses.view"));$("showReportsTab").classList.toggle("hidden",!canOpenReports());$("backupPanel").classList.toggle("hidden",m.role!=="owner");}
 async function loadProducts(){if(!activeBusinessId)return;message("globalMessage","جارٍ تحميل المنتجات والمخزون...");const {data,error}=await client.from("products").select("id,business_id,code,name,category,unit,average_cost,wholesale_price,retail_price,minimum_stock,warranty,warranty_provider,specs,image_path,is_active,created_at").eq("business_id",activeBusinessId).eq("is_active",true).order("name");if(error)return fail(error);products=data||[];const imagePaths=products.filter(p=>p.image_path).map(p=>p.image_path);if(permission("products.view")&&imagePaths.length){const {data:urls,error:ue}=await client.storage.from("product-images").createSignedUrls(imagePaths,3600);if(!ue)(urls||[]).forEach(x=>{const p=products.find(y=>y.image_path===x.path);if(p)p.image_url=x.signedUrl;});else console.warn("Product image URLs unavailable:",ue.message);}balances={};if(permission("inventory.view")){const {data:s,error:se}=await client.from("product_stock_balances").select("product_id,quantity_on_hand,stock_value,below_minimum").eq("business_id",activeBusinessId);if(!se)(s||[]).forEach(x=>balances[x.product_id]=x);else console.warn("Stock view unavailable:",se.message);}renderProducts();message("globalMessage","");}
 function renderProducts(){const q=$("productSearch").value.trim().toLowerCase(),filter=$("stockFilter").value,canEdit=permission("products.edit"),canStock=permission("inventory.create"),canView=permission("inventory.view");const rows=products.filter(p=>{const b=balances[p.id],n=Number(b?.quantity_on_hand||0),t=[p.name,p.code,p.category].join(" ").toLowerCase();return(!q||t.includes(q))&&(filter==="all"||(filter==="low"&&b&&b.below_minimum)||(filter==="zero"&&b&&n===0)||(filter==="available"&&b&&n>0));});$("productsRows").innerHTML=rows.length?rows.map(p=>{const b=balances[p.id],n=canView?(b?Number(b.quantity_on_hand):null):null,state=!canView?"غير متاح":n===null?"غير محمّل":n<=Number(p.minimum_stock)?"منخفض":"متوفر";return '<tr><td><div class="product-cell">'+(p.image_url?'<img class="product-thumb" src="'+esc(p.image_url)+'" alt="">':'<span class="product-thumb placeholder">—</span>')+'<div><strong>'+esc(p.name)+'</strong><small>'+esc(p.category||"بدون تصنيف")+'</small></div></div></td><td>'+esc(p.code||"—")+'</td><td>'+money(p.wholesale_price)+'</td><td>'+money(p.retail_price)+'</td><td>'+(n===null?"—":n+" "+esc(p.unit))+'</td><td>'+money(p.average_cost)+'</td><td><span class="tag '+(state==="منخفض"?"low":"")+'">'+state+'</span></td><td class="row-actions">'+(canEdit?'<button class="tiny secondary" data-edit="'+p.id+'">تعديل</button>':"")+(canStock?'<button class="tiny" data-stock="'+p.id+'">تسوية</button>':"")+(canView?'<button class="tiny secondary" data-history="'+p.id+'">الحركات</button>':"")+'</td></tr>';}).join(""):'<tr><td colspan="8">لا توجد منتجات مطابقة أو لا توجد صلاحية لعرضها.</td></tr>';$("productsRows").querySelectorAll("[data-edit]").forEach(b=>b.addEventListener("click",()=>openProductForm(products.find(p=>p.id===b.dataset.edit))));$("productsRows").querySelectorAll("[data-stock]").forEach(b=>b.addEventListener("click",()=>openStockForm(products.find(p=>p.id===b.dataset.stock))));$("productsRows").querySelectorAll("[data-history]").forEach(b=>b.addEventListener("click",()=>loadHistory(products.find(p=>p.id===b.dataset.history))));const tracked=Object.keys(balances).length,low=Object.values(balances).filter(x=>x.below_minimum).length;$("stockStats").innerHTML='<div class="stat"><strong>'+products.length+'</strong><span>منتج نشط بالكتالوج</span></div><div class="stat"><strong>'+tracked+'</strong><span>منتج له بيانات مخزون ظاهرة</span></div><div class="stat"><strong>'+low+'</strong><span>تحت حد التنبيه</span></div>';}
 function openProductForm(p=null){if(p&&!permission("products.edit"))return;if(!p&&!permission("products.create"))return;const f=$("productForm");f.reset();f.elements.id.value=p?.id||"";["name","code","category","unit","wholesale_price","retail_price","minimum_stock","warranty","warranty_provider","specs"].forEach(k=>f.elements[k].value=p?.[k]??({unit:"قطعة",wholesale_price:0,retail_price:0,minimum_stock:0}[k]??""));$("productImagePreview").src=p?.image_url||"";show("productImagePreview",!!p?.image_url);$("productFormTitle").textContent=p?"تعديل بيانات المنتج":"إضافة منتج للكتالوج";show("productEditor",true);$("productEditor").scrollIntoView({behavior:"smooth",block:"start"});}
@@ -190,7 +190,7 @@ $("showReportsTab").addEventListener("click",async()=>{
 });
 $("reportPreset").addEventListener("change",applyReportPreset);
 $("runReports").addEventListener("click",loadReports);
-$("exportReports").addEventListener("click",exportReportsExcel);
+$("exportReports").addEventListener("click",exportReportsExcel);$("createBackup").addEventListener("click",exportBusinessBackup);$("restoreBackup").addEventListener("click",restoreBusinessBackup);
 function reportDate(d){const x=new Date(d);return x.getFullYear()+"-"+String(x.getMonth()+1).padStart(2,"0")+"-"+String(x.getDate()).padStart(2,"0");}
 function applyReportPreset(){
  const preset=$("reportPreset").value;if(preset==="custom")return;const now=new Date(),end=reportDate(now);let start=end;
@@ -325,4 +325,48 @@ function exportReportsExcel(){
  const filename="AlNesr_Reports_"+from+"_to_"+to+".xlsx";
  XLSX.writeFile(wb,filename);
  message("globalMessage","تم تجهيز ملف Excel بالتقارير المتاحة حسب صلاحيات حسابك.");
+}
+
+const backupTables=["products","parties","purchase_invoices","purchase_items","sales_invoices","sales_items","payments","stock_movements","sales_returns","sales_return_items","expenses","cash_transactions","business_settings"];
+async function fetchBackupRows(table){
+ let rows=[],from=0,step=1000;
+ while(true){
+  const {data,error}=await client.from(table).select("*").eq("business_id",activeBusinessId).range(from,from+step-1);
+  if(error)throw error;
+  rows.push(...(data||[]));
+  if(!data||data.length<step)break;
+  from+=step;
+ }
+ return rows;
+}
+async function exportBusinessBackup(){
+ const member=memberships.find(x=>x.business_id===activeBusinessId);
+ if(member?.role!=="owner")return message("globalMessage","النسخ الاحتياطي الكامل متاح لمالك النشاط فقط.");
+ try{
+  message("globalMessage","جارٍ تجهيز النسخة الاحتياطية...");
+  const tables={};
+  for(const name of backupTables)tables[name]=await fetchBackupRows(name);
+  const backup={format_version:"alnesr-business-backup-v1",created_at:new Date().toISOString(),business_id:activeBusinessId,business_name:$("welcome").textContent,tables};
+  const blob=new Blob([JSON.stringify(backup)],{type:"application/json"});
+  const url=URL.createObjectURL(blob),link=document.createElement("a");
+  link.href=url;link.download="AlNesr_Backup_"+today()+".json";
+  document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
+  message("globalMessage","تم تنزيل نسخة بيانات النشاط. احتفظ بها في مكان آمن.");
+ }catch(e){fail(e);}
+}
+async function restoreBusinessBackup(){
+ const member=memberships.find(x=>x.business_id===activeBusinessId),file=$("backupFile").files?.[0];
+ if(member?.role!=="owner")return message("globalMessage","استعادة النسخة الاحتياطية متاحة لمالك النشاط فقط.");
+ if(!file)return message("globalMessage","اختر ملف النسخة الاحتياطية أولًا.");
+ if(file.size>100*1024*1024)return message("globalMessage","حجم الملف أكبر من الحد المسموح (100 ميجابايت).");
+ let backup;
+ try{backup=JSON.parse(await file.text());}catch(e){return message("globalMessage","الملف ليس JSON صالحًا.");}
+ if(backup?.format_version!=="alnesr-business-backup-v1"||backup?.business_id!==activeBusinessId||!backup.tables)return message("globalMessage","النسخة لا تخص هذا النشاط أو إصدارها غير مدعوم.");
+ if(!confirm("تنبيه: الاستعادة متاحة فقط إذا كانت جداول بيانات هذا النشاط فارغة. ستتم إضافة البيانات من الملف داخل معاملة واحدة. هل تريد المتابعة؟"))return;
+ message("globalMessage","جارٍ استعادة البيانات والتحقق من العلاقات...");
+ const {data,error}=await client.rpc("restore_business_backup",{p_business_id:activeBusinessId,p_backup:backup});
+ if(error)return fail(error);
+ $("backupFile").value="";
+ message("globalMessage","تمت استعادة البيانات. جارٍ تحديث الواجهة...");
+ await loadWorkspace();
 }
