@@ -287,6 +287,7 @@ begin
     if not public.has_business_permission(p_business_id,'cash.create') then
       raise exception 'Not authorized to record the cash receipt';
     end if;
+    perform pg_advisory_xact_lock(hashtextextended(p_business_id::text,0));
     insert into public.payments(business_id,party_id,invoice_id,direction,amount,payment_date,method,notes,created_by)
     values(p_business_id,p_customer_id,v_invoice_id,'in',p_paid_amount,coalesce(p_invoice_date,current_date),'cash','تحصيل عند إنشاء فاتورة مبيعات',auth.uid());
     insert into public.cash_transactions(business_id,transaction_date,direction,transaction_type,amount,party_id,invoice_id,reason,created_by)
@@ -361,9 +362,7 @@ begin
   end if;
 
   if lower(p_method)='cash' then
-    if v_direction='out' then
-      perform pg_advisory_xact_lock(hashtextextended(p_business_id::text,0));
-    end if;
+    perform pg_advisory_xact_lock(hashtextextended(p_business_id::text,0));
     if v_direction='out' and coalesce((select sum(case when direction='in' then amount else -amount end) from public.cash_transactions where business_id=p_business_id),0) < p_amount then
       raise exception 'Insufficient cash balance for this supplier payment';
     end if;
@@ -399,6 +398,7 @@ begin
   if p_amount is null or p_amount<=0 or coalesce(trim(p_reason),'')='' then
     raise exception 'Positive amount and deposit reason are required';
   end if;
+  perform pg_advisory_xact_lock(hashtextextended(p_business_id::text,0));
   insert into public.cash_transactions(business_id,transaction_date,direction,transaction_type,amount,reason,notes,created_by)
   values(p_business_id,coalesce(p_transaction_date,current_date),'in','deposit',p_amount,trim(p_reason),p_notes,auth.uid())
   returning id into v_id;
