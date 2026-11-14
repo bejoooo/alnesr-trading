@@ -43,5 +43,6 @@ using (
  bucket_id='product-images'
  and (
   public.has_business_permission(((storage.foldername(name))[1])::uuid,'products.edit')
+  or (owner_id=auth.uid() and public.has_business_permission(((storage.foldername(name))[1])::uuid,'products.create'))
  )
 );
