@@ -24,10 +24,10 @@ as $$
             case m.role
               when 'manager' then permission_key not in ('members.manage', 'settings.edit', 'audit.view')
               when 'cashier' then permission_key in (
-                'products.view', 'parties.view', 'parties.add',
+                'products.view', 'parties.view', 'parties.create',
                 'sales.view', 'sales.create', 'sales.edit',
-                'payments.view', 'payments.record',
-                'inventory.view', 'cash.view', 'cash.deposit', 'cash.withdraw'
+                'payments.view', 'payments.create', 'payments.record',
+                'inventory.view', 'cash.view', 'cash.create', 'cash.deposit', 'cash.withdraw'
               )
               when 'viewer' then permission_key in (
                 'products.view', 'parties.view', 'purchases.view',
@@ -59,6 +59,19 @@ begin
     coalesce(new.business_id, old.business_id),
     array['owner']
   );
+
+  -- Allow the schema's creator trigger to create the very first owner membership.
+  if tg_op = 'INSERT' and new.role = 'owner' and new.user_id = auth.uid()
+     and exists (
+       select 1 from public.businesses b
+       where b.id = new.business_id and b.created_by = auth.uid()
+     )
+     and not exists (
+       select 1 from public.business_members m
+       where m.business_id = new.business_id
+     ) then
+    actor_is_owner := true;
+  end if;
 
   if tg_op = 'UPDATE' then
     if new.business_id <> old.business_id or new.user_id <> old.user_id then
