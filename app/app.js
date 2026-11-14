@@ -348,9 +348,10 @@ async function exportBusinessBackup(){
   for(const name of backupTables)tables[name]=await fetchBackupRows(name);
   const backup={format_version:"alnesr-business-backup-v1",created_at:new Date().toISOString(),business_id:activeBusinessId,business_name:$("welcome").textContent,tables};
   const blob=new Blob([JSON.stringify(backup)],{type:"application/json"});
+  if(blob.size>100*1024*1024)return message("globalMessage","حجم النسخة أكبر من الحد الحالي للاستعادة (100 ميجابايت).");
   const url=URL.createObjectURL(blob),link=document.createElement("a");
   link.href=url;link.download="AlNesr_Backup_"+today()+".json";
-  document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
+  document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
   message("globalMessage","تم تنزيل نسخة بيانات النشاط. احتفظ بها في مكان آمن.");
  }catch(e){fail(e);}
 }
