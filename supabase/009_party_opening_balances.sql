@@ -45,7 +45,6 @@ create or replace view public.party_account_balances
 with (security_invoker=true) as
 select p.business_id,p.id as party_id,p.kind,p.name,p.phone,
        p.opening_balance::numeric(14,2) as opening_balance,
-       p.opening_balance_side,
        coalesce(s.sales_total,0)::numeric(14,2) as sales_total,
        coalesce(pi.purchases_total,0)::numeric(14,2) as purchases_total,
        coalesce(pay.customer_paid,0)::numeric(14,2) as customer_payments,
@@ -59,7 +58,8 @@ select p.business_id,p.id as party_id,p.kind,p.name,p.phone,
        (case when p.kind in ('supplier','both') then
           (case when p.opening_balance_side='payable' then p.opening_balance else 0 end)
           +coalesce(pi.purchases_total,0)-coalesce(pay.supplier_paid,0)
-        else 0 end)::numeric(14,2) as supplier_net_balance
+        else 0 end)::numeric(14,2) as supplier_net_balance,
+       p.opening_balance_side
 from public.parties p
 left join lateral (
   select sum(total) as sales_total from public.sales_invoices x
