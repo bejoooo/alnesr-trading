@@ -26,20 +26,20 @@ begin
   ) then
     raise exception 'استعادة النسخة الاحتياطية متاحة لمالك النشاط فقط';
   end if;
-  if jsonb_typeof(p_backup) <> 'object'
-     or p_backup->>'format_version' <> 'alnesr-business-backup-v1'
-     or p_backup->>'business_id' <> p_business_id::text
-     or jsonb_typeof(p_backup->'tables') <> 'object' then
+  if jsonb_typeof(p_backup) is distinct from 'object'
+     or p_backup->>'format_version' is distinct from 'alnesr-business-backup-v1'
+     or p_backup->>'business_id' is distinct from p_business_id::text
+     or jsonb_typeof(p_backup->'tables') is distinct from 'object' then
     raise exception 'ملف النسخة الاحتياطية غير صالح أو تابع لنشاط آخر';
   end if;
 
   foreach tbl in array required_tables loop
-    if jsonb_typeof(p_backup->'tables'->tbl) <> 'array' then
+    if jsonb_typeof(p_backup->'tables'->tbl) is distinct from 'array' then
       raise exception 'ملف النسخة الاحتياطية ناقص بيانات الجدول %', tbl;
     end if;
     if exists (
-      select 1 from jsonb_array_elements(p_backup->'tables'->tbl) as row_data
-      where row_data->>'business_id' is distinct from p_business_id::text
+      select 1 from jsonb_array_elements(p_backup->'tables'->tbl) as rows(value)
+      where value->>'business_id' is distinct from p_business_id::text
     ) then
       raise exception 'النسخة تحتوي سجلات لا تخص هذا النشاط في الجدول %', tbl;
     end if;
