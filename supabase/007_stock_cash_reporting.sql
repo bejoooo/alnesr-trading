@@ -187,7 +187,9 @@ begin
   if p_amount is null or p_amount<=0 or coalesce(trim(p_reason),'')='' then
     raise exception 'Positive amount and withdrawal reason are required';
   end if;
-  if coalesce((select sum(case when direction='in' then amount else -amount end)\n              from public.cash_transactions where business_id=p_business_id),0)<p_amount then
+  perform pg_advisory_xact_lock(hashtextextended(p_business_id::text,0));
+  if coalesce((select sum(case when direction='in' then amount else -amount end)
+              from public.cash_transactions where business_id=p_business_id),0)<p_amount then
     raise exception 'Cash withdrawal exceeds available cash balance';
   end if;
   insert into public.cash_transactions(
@@ -204,9 +206,11 @@ end;
 $$;
 
 revoke all on function public.post_stock_adjustment(uuid,uuid,numeric,text,date,numeric) from public,anon;
-revoke all on function public.record_cash_opening_balance(uuid,numeric,date,text) from public,anon;\nrevoke all on function public.record_cash_withdrawal(uuid,numeric,text,date,text) from public,anon;
+revoke all on function public.record_cash_opening_balance(uuid,numeric,date,text) from public,anon;
+revoke all on function public.record_cash_withdrawal(uuid,numeric,text,date,text) from public,anon;
 grant execute on function public.post_stock_adjustment(uuid,uuid,numeric,text,date,numeric) to authenticated;
-grant execute on function public.record_cash_opening_balance(uuid,numeric,date,text) to authenticated;\ngrant execute on function public.record_cash_withdrawal(uuid,numeric,text,date,text) to authenticated;
+grant execute on function public.record_cash_opening_balance(uuid,numeric,date,text) to authenticated;
+grant execute on function public.record_cash_withdrawal(uuid,numeric,text,date,text) to authenticated;
 
 grant select on public.product_stock_balances to authenticated;
 grant select on public.cash_balances to authenticated;
