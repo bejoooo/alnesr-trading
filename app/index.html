@@ -71,6 +71,8 @@
  </div>
  <div class="toolbar filters"><input id="cashSearch" placeholder="بحث في سبب الحركة أو الملاحظات"><select id="cashDirection"><option value="all">كل الحركات</option><option value="in">إيداعات ومقبوضات</option><option value="out">سحوبات ومدفوعات</option></select></div>
  <div class="table-wrap"><table><thead><tr><th>التاريخ</th><th>نوع الحركة</th><th>البيان</th><th>داخل</th><th>خارج</th><th>ملاحظات</th></tr></thead><tbody id="cashRows"><tr><td colspan="6">لا توجد حركات محمّلة.</td></tr></tbody></table></div>
+
+ <div class="subpanel"><h4>الأرصدة الافتتاحية للعملاء والموردين</h4><p class="muted">سجّل المبالغ القديمة المستحقة قبل بدء استخدام النظام. لا يمكن تعديل الرصيد الافتتاحي بعد وجود فواتير أو دفعات أو مرتجعات على الحساب.</p><form id="partyOpeningForm" class="form-grid"><label>العميل أو المورد *<select name="party_id" id="openingParty" required><option value="">اختر حسابًا</option></select></label><label>طبيعة الرصيد<select name="side" id="openingPartySide"><option value="receivable">مستحق لنا من العميل</option><option value="payable">مستحق علينا للمورد</option></select></label><label>قيمة الرصيد الافتتاحي *<input name="amount" type="number" min="0" step="0.01" required></label><div class="wide actions"><button type="submit">حفظ الرصيد الافتتاحي للحساب</button></div></form><p id="partyOpeningHint" class="muted"></p></div>
  <div class="section-head" style="margin-top:24px"><div><h3>سجل المصروفات</h3><p class="muted">تفاصيل المصروفات المسجلة، وهي مرتبطة بحركة صرف واحدة في الخزنة.</p></div></div>
  <div class="table-wrap"><table><thead><tr><th>التاريخ</th><th>المصروف</th><th>القيمة</th><th>ملاحظات</th></tr></thead><tbody id="expensesRows"><tr><td colspan="4">لا توجد مصروفات محمّلة.</td></tr></tbody></table></div>
 </section>
