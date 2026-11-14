@@ -1,5 +1,5 @@
 -- Al Nesr Trading — post-migration structural verification
--- Run after applying schema.sql and migrations 002 through 009 in order.
+-- Run after applying schema.sql and migrations 002 through 011 in order.
 -- This checks that required objects exist; it does NOT replace live transaction tests.
 
 do $$
@@ -7,6 +7,7 @@ declare
   required_table text;
   required_view text;
   required_function text;
+  required_policy text;
 begin
   foreach required_table in array array[
     'businesses','business_members','products','parties','purchase_invoices',
@@ -38,7 +39,8 @@ begin
     'public.post_stock_adjustment(uuid,uuid,numeric,text,date,numeric)',
     'public.record_cash_opening_balance(uuid,numeric,date,text)',
     'public.record_cash_withdrawal(uuid,numeric,text,date,text)',
-    'public.set_party_opening_balance(uuid,uuid,numeric,text)'
+    'public.set_party_opening_balance(uuid,uuid,numeric,text)',
+    'public.restore_business_backup(uuid,jsonb)'
   ] loop
     if to_regprocedure(required_function) is null then
       raise exception 'Missing required function: %',required_function;
@@ -52,6 +54,21 @@ begin
   ) then
     raise exception 'Row level security is not enabled on products';
   end if;
+
+  if not exists (select 1 from storage.buckets where id='product-images' and public=false) then
+    raise exception 'Private product-images storage bucket is missing';
+  end if;
+
+  foreach required_policy in array array[
+    'product_images_read','product_images_insert','product_images_update','product_images_delete'
+  ] loop
+    if not exists (
+      select 1 from pg_policies
+      where schemaname='storage' and tablename='objects' and policyname=required_policy
+    ) then
+      raise exception 'Missing storage policy: %',required_policy;
+    end if;
+  end loop;
 
   if not exists (
     select 1 from pg_class c
