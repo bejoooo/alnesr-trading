@@ -66,7 +66,7 @@ begin
     if not found then raise exception 'Supplier does not belong to this business'; end if;
   end if;
 
-  select count(*), coalesce(sum((x->>'quantity')::numeric * (x->>'unit_price')::numeric),0)
+  select count(*), coalesce(sum(round((x->>'quantity')::numeric * (x->>'unit_price')::numeric,2)),0)
     into v_item_count, v_subtotal
   from jsonb_array_elements(p_items) x;
   if v_item_count = 0 then raise exception 'Empty purchase'; end if;
