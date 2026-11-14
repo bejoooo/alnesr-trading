@@ -5,3 +5,8 @@
 .return-line{border-right:3px solid #b58a55}.return-line input:disabled{background:#f2f5f7;color:#667984}
 
 .cash-actions{flex-wrap:wrap}.cash-actions button{min-width:145px}#cashStats .stat strong{font-size:20px}
+
+#reportsModule .stats{grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+#reportsModule .subpanel p{margin:6px 0;line-height:1.7}
+#reportsModule .form-grid{align-items:end}
+@media(max-width:650px){#reportsModule .stats{grid-template-columns:1fr 1fr}}
