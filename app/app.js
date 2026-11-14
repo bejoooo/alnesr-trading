@@ -17,7 +17,7 @@ $("newProductBtn").addEventListener("click",()=>openProductForm());$("cancelProd
 async function loadWorkspace(){message("globalMessage","جارٍ تحميل عضوياتك...");const {data:u,error:ue}=await client.auth.getUser();if(ue||!u.user){show("workspace",false);show("authPanel",true);return;}const {data,error}=await client.from("business_members").select("business_id,role,permissions,active,businesses(id,name,phone,address)").eq("user_id",u.user.id).eq("active",true);if(error)return fail(error);memberships=data||[];show("authPanel",false);show("workspace",true);if(!memberships.length){show("businessSetup",true);show("businessPicker",false);show("moduleShell",false);$("welcome").textContent="مرحبًا، "+u.user.email;$("memberRole").textContent="لا يوجد نشاط مرتبط بهذا الحساب بعد.";}else{show("businessSetup",false);show("moduleShell",true);const s=$("businessSelect");s.innerHTML=memberships.map(m=>{const b=Array.isArray(m.businesses)?m.businesses[0]:m.businesses;return '<option value="'+esc(m.business_id)+'">'+esc(b?.name||"نشاط")+'</option>';}).join("");show("businessPicker",memberships.length>1);activeBusinessId=activeBusinessId&&memberships.some(m=>m.business_id===activeBusinessId)?activeBusinessId:memberships[0].business_id;s.value=activeBusinessId;renderMembership();await loadProducts();}message("globalMessage","");}
 function roleLabel(r){return({owner:"مالك",admin:"مدير",manager:"مشرف",cashier:"كاشير",viewer:"مشاهدة فقط"})[r]||r;}
 function permission(key){const m=memberships.find(x=>x.business_id===activeBusinessId);if(!m)return false;if(m.role==="owner"||m.role==="admin")return true;if(Object.prototype.hasOwnProperty.call(m.permissions||{},key))return m.permissions[key]===true;const d={manager:["products.view","products.create","products.edit","parties.view","parties.create","parties.edit","purchases.view","purchases.create","purchases.edit","sales.view","sales.create","sales.edit","payments.view","payments.create","payments.record","inventory.view","inventory.create","expenses.view","expenses.create","expenses.edit","cash.view","cash.create","cash.deposit","cash.withdraw","settings.view"],cashier:["products.view","parties.view","parties.create","sales.view","sales.create","sales.edit","payments.view","payments.create","payments.record","inventory.view","cash.view","cash.create","cash.deposit","cash.withdraw"],viewer:["products.view","parties.view","purchases.view","sales.view","payments.view","inventory.view","expenses.view","cash.view","settings.view","audit.view"]};return(d[m.role]||[]).includes(key);}
-function renderMembership(){const m=memberships.find(x=>x.business_id===activeBusinessId);if(!m)return;const b=Array.isArray(m.businesses)?m.businesses[0]:m.businesses;$("welcome").textContent=b?.name||"النشاط";$("memberRole").textContent="دور الحساب: "+roleLabel(m.role)+" · العملة: EGP";const allowed=Object.entries(m.permissions||{}).filter(([,v])=>v===true).map(([k])=>k);$("permissionSummary").innerHTML="<p class='muted'>الصلاحيات الإضافية المسجلة:</p>"+(allowed.length?allowed.map(x=>'<span class="permission">'+esc(x)+'</span>').join(""):"<span class='muted'>تُطبّق الصلاحيات الافتراضية للدور من قاعدة البيانات.</span>");$("newProductBtn").classList.toggle("hidden",!permission("products.create"));$("showCashTab").classList.toggle("hidden",!permission("cash.view")&&!permission("expenses.view"));}
+function renderMembership(){const m=memberships.find(x=>x.business_id===activeBusinessId);if(!m)return;const b=Array.isArray(m.businesses)?m.businesses[0]:m.businesses;$("welcome").textContent=b?.name||"النشاط";$("memberRole").textContent="دور الحساب: "+roleLabel(m.role)+" · العملة: EGP";const allowed=Object.entries(m.permissions||{}).filter(([,v])=>v===true).map(([k])=>k);$("permissionSummary").innerHTML="<p class='muted'>الصلاحيات الإضافية المسجلة:</p>"+(allowed.length?allowed.map(x=>'<span class="permission">'+esc(x)+'</span>').join(""):"<span class='muted'>تُطبّق الصلاحيات الافتراضية للدور من قاعدة البيانات.</span>");$("newProductBtn").classList.toggle("hidden",!permission("products.create"));$("showCashTab").classList.toggle("hidden",!permission("cash.view")&&!permission("expenses.view"));$("showReportsTab").classList.toggle("hidden",!canOpenReports());}
 async function loadProducts(){if(!activeBusinessId)return;message("globalMessage","جارٍ تحميل المنتجات والمخزون...");const {data,error}=await client.from("products").select("id,business_id,code,name,category,unit,average_cost,wholesale_price,retail_price,minimum_stock,warranty,warranty_provider,specs,is_active,created_at").eq("business_id",activeBusinessId).eq("is_active",true).order("name");if(error)return fail(error);products=data||[];balances={};if(permission("inventory.view")){const {data:s,error:se}=await client.from("product_stock_balances").select("product_id,quantity_on_hand,stock_value,below_minimum").eq("business_id",activeBusinessId);if(!se)(s||[]).forEach(x=>balances[x.product_id]=x);else console.warn("Stock view unavailable:",se.message);}renderProducts();message("globalMessage","");}
 function renderProducts(){const q=$("productSearch").value.trim().toLowerCase(),filter=$("stockFilter").value,canEdit=permission("products.edit"),canStock=permission("inventory.create"),canView=permission("inventory.view");const rows=products.filter(p=>{const b=balances[p.id],n=Number(b?.quantity_on_hand||0),t=[p.name,p.code,p.category].join(" ").toLowerCase();return(!q||t.includes(q))&&(filter==="all"||(filter==="low"&&b&&b.below_minimum)||(filter==="zero"&&b&&n===0)||(filter==="available"&&b&&n>0));});$("productsRows").innerHTML=rows.length?rows.map(p=>{const b=balances[p.id],n=canView?(b?Number(b.quantity_on_hand):null):null,state=!canView?"غير متاح":n===null?"غير محمّل":n<=Number(p.minimum_stock)?"منخفض":"متوفر";return '<tr><td><strong>'+esc(p.name)+'</strong><small>'+esc(p.category||"بدون تصنيف")+'</small></td><td>'+esc(p.code||"—")+'</td><td>'+money(p.wholesale_price)+'</td><td>'+money(p.retail_price)+'</td><td>'+(n===null?"—":n+" "+esc(p.unit))+'</td><td>'+money(p.average_cost)+'</td><td><span class="tag '+(state==="منخفض"?"low":"")+'">'+state+'</span></td><td class="row-actions">'+(canEdit?'<button class="tiny secondary" data-edit="'+p.id+'">تعديل</button>':"")+(canStock?'<button class="tiny" data-stock="'+p.id+'">تسوية</button>':"")+(canView?'<button class="tiny secondary" data-history="'+p.id+'">الحركات</button>':"")+'</td></tr>';}).join(""):'<tr><td colspan="8">لا توجد منتجات مطابقة أو لا توجد صلاحية لعرضها.</td></tr>';$("productsRows").querySelectorAll("[data-edit]").forEach(b=>b.addEventListener("click",()=>openProductForm(products.find(p=>p.id===b.dataset.edit))));$("productsRows").querySelectorAll("[data-stock]").forEach(b=>b.addEventListener("click",()=>openStockForm(products.find(p=>p.id===b.dataset.stock))));$("productsRows").querySelectorAll("[data-history]").forEach(b=>b.addEventListener("click",()=>loadHistory(products.find(p=>p.id===b.dataset.history))));const tracked=Object.keys(balances).length,low=Object.values(balances).filter(x=>x.below_minimum).length;$("stockStats").innerHTML='<div class="stat"><strong>'+products.length+'</strong><span>منتج نشط بالكتالوج</span></div><div class="stat"><strong>'+tracked+'</strong><span>منتج له بيانات مخزون ظاهرة</span></div><div class="stat"><strong>'+low+'</strong><span>تحت حد التنبيه</span></div>';}
 function openProductForm(p=null){if(p&&!permission("products.edit"))return;if(!p&&!permission("products.create"))return;const f=$("productForm");f.reset();f.elements.id.value=p?.id||"";["name","code","category","unit","wholesale_price","retail_price","minimum_stock","warranty","warranty_provider","specs"].forEach(k=>f.elements[k].value=p?.[k]??({unit:"قطعة",wholesale_price:0,retail_price:0,minimum_stock:0}[k]??""));$("productFormTitle").textContent=p?"تعديل بيانات المنتج":"إضافة منتج للكتالوج";show("productEditor",true);$("productEditor").scrollIntoView({behavior:"smooth",block:"start"});}
@@ -27,7 +27,7 @@ async function saveStockAdjustment(e){e.preventDefault();const f=new FormData(e.
 async function loadHistory(p){if(!p||!permission("inventory.view"))return;message("globalMessage","جارٍ تحميل سجل الحركات...");const {data,error}=await client.from("stock_movements").select("movement_date,movement_type,quantity_delta,unit_cost,source_type,source_id,notes").eq("business_id",activeBusinessId).eq("product_id",p.id).order("movement_date",{ascending:false}).limit(100);if(error)return fail(error);const names={purchase:"مشتريات",sale:"مبيعات",customer_return_good:"مرتجع صالح",damage:"تالف",loss:"عجز",adjustment_in:"تسوية زيادة",adjustment_out:"تسوية نقص",opening:"رصيد افتتاحي"};$("historyRows").innerHTML=(data||[]).length?data.map(x=>'<tr><td>'+esc(x.movement_date)+'</td><td>'+esc(names[x.movement_type]||x.movement_type)+'</td><td>'+Number(x.quantity_delta)+'</td><td>'+money(x.unit_cost)+'</td><td>'+esc(x.notes||x.source_type||"—")+'</td></tr>').join(""):'<tr><td colspan="5">لا توجد حركات مسجلة لهذا المنتج.</td></tr>';show("stockHistory",true);$("stockHistory").scrollIntoView({behavior:"smooth",block:"start"});message("globalMessage","");}
 function money(v){return Number(v||0).toLocaleString("en-EG",{minimumFractionDigits:2,maximumFractionDigits:2})+" ج.م";}
 function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
-client.auth.getSession().then(({data,error})=>{if(error)return fail(error);if(data.session)loadWorkspace();});client.auth.onAuthStateChange((event,session)=>{if(event==="SIGNED_IN"&&session)loadWorkspace();if(event==="SIGNED_OUT"){show("workspace",false);show("authPanel",true);}});
+applyReportPreset();client.auth.getSession().then(({data,error})=>{if(error)return fail(error);if(data.session)loadWorkspace();});client.auth.onAuthStateChange((event,session)=>{if(event==="SIGNED_IN"&&session)loadWorkspace();if(event==="SIGNED_OUT"){show("workspace",false);show("authPanel",true);}});
 
 const canPurchases=()=>permission("purchases.view");
 let suppliers=[],purchaseInvoices=[],purchaseLineCount=0;
@@ -155,3 +155,154 @@ function updateOpeningPartySide(){const p=openingParties.find(x=>x.id===$("openi
 async function savePartyOpeningBalance(e){e.preventDefault();if(!permission("parties.edit"))return message("globalMessage","ليس لديك صلاحية تعديل أرصدة الحسابات.");const f=new FormData(e.currentTarget),p=openingParties.find(x=>x.id===f.get("party_id")),amount=Number(f.get("amount"));if(!p||!Number.isFinite(amount)||amount<0)return message("globalMessage","اختر حسابًا وأدخل قيمة غير سالبة.");let side=String(f.get("side"));if(p.kind==="supplier")side="payable";if(p.kind==="customer")side="receivable";message("globalMessage","جارٍ حفظ الرصيد الافتتاحي للحساب...");const {error}=await client.rpc("set_party_opening_balance",{p_business_id:activeBusinessId,p_party_id:p.id,p_amount:amount,p_side:side});if(error)return fail(error);message("globalMessage","تم حفظ الرصيد الافتتاحي للحساب.");await loadPartyOpeningOptions();if(permission("purchases.view"))await loadPurchasesModule();if(permission("sales.view"))await loadSalesModule();}
 
 })();
+
+// ===== Reports & Excel export =====
+const reportData={};
+const canOpenReports=()=>permission("sales.view")||permission("purchases.view")||permission("payments.view")||permission("expenses.view")||permission("cash.view")||permission("inventory.view")||permission("parties.view");
+$("showReportsTab").addEventListener("click",async()=>{
+ if(!canOpenReports())return message("globalMessage","ليس لديك صلاحية عرض التقارير.");
+ ["productsModule","purchasesModule","salesModule","cashModule"].forEach(id=>show(id,false));
+ show("reportsModule",true);
+ ["showProductsTab","showPurchasesTab","showSalesTab","showCashTab"].forEach(id=>$(id).classList.add("secondary"));
+ $("showReportsTab").classList.remove("secondary");
+ await loadReports();
+});
+$("reportPreset").addEventListener("change",applyReportPreset);
+$("runReports").addEventListener("click",loadReports);
+$("exportReports").addEventListener("click",exportReportsExcel);
+function reportDate(d){const x=new Date(d);return x.getFullYear()+"-"+String(x.getMonth()+1).padStart(2,"0")+"-"+String(x.getDate()).padStart(2,"0");}
+function applyReportPreset(){
+ const preset=$("reportPreset").value,now=new Date(),end=reportDate(now);let start=end;
+ if(preset==="week"){const day=(now.getDay()+6)%7;const d=new Date(now);d.setDate(now.getDate()-day);start=reportDate(d);}
+ if(preset==="month"){start=reportDate(new Date(now.getFullYear(),now.getMonth(),1));}
+ $("reportFrom").value=start;$("reportTo").value=end;
+}
+async function fetchReportRows(table,fields,dateField,from,to,extra){
+ let rows=[],start=0,batch=1000;
+ while(true){
+  let q=client.from(table).select(fields).eq("business_id",activeBusinessId);
+  if(dateField&&from)q=q.gte(dateField,from);
+  if(dateField&&to)q=q.lte(dateField,to);
+  if(extra)q=extra(q);
+  const {data,error}=await q.range(start,start+batch-1);
+  if(error)throw error;
+  const part=data||[];rows=rows.concat(part);
+  if(part.length<batch)break;
+  start+=batch;
+  if(start>=20000)break;
+ }
+ return rows;
+}
+function reportSum(rows,key){return rows.reduce((sum,x)=>sum+Number(x[key]||0),0);}
+function reportMoney(v){return Number(v||0).toLocaleString("en-EG",{minimumFractionDigits:2,maximumFractionDigits:2})+" ج.م";}
+function setReportStat(id,value,label){$(id).innerHTML='<div class="stat"><strong>'+esc(value)+'</strong><span>'+esc(label)+'</span></div>';}
+async function loadReports(){
+ if(!activeBusinessId)return;
+ const from=$("reportFrom").value,to=$("reportTo").value;
+ if(!from||!to||from>to)return message("globalMessage","حدد نطاق تاريخ صحيح (من تاريخ إلى تاريخ).");
+ message("globalMessage","جارٍ تجهيز التقارير حسب صلاحيات حسابك...");
+ $("reportResults").innerHTML='<p class="muted">جارٍ تحميل البيانات...</p>';
+ try{
+  const jobs=[];
+  const add=(key,allowed,table,fields,dateField,extra)=>{if(allowed)jobs.push(fetchReportRows(table,fields,dateField,from,to,extra).then(v=>{reportData[key]=v;}));else reportData[key]=[];};
+  add("sales",permission("sales.view"),"sales_invoices","id,invoice_no,customer_id,customer_name_snapshot,invoice_date,subtotal,discount,total,paid_total,due_total,status","invoice_date",q=>q.neq("status","void"));
+  add("purchases",permission("purchases.view"),"purchase_invoices","id,invoice_no,supplier_id,supplier_name_snapshot,invoice_date,subtotal,supplier_discount,total,paid_total,due_total,status","invoice_date",q=>q.neq("status","void"));
+  add("payments",permission("payments.view"),"payments","id,party_id,invoice_id,direction,amount,payment_date,method,reference,notes","payment_date");
+  add("cash",permission("cash.view"),"cash_transactions","id,transaction_date,direction,transaction_type,amount,party_id,invoice_id,reason,notes","transaction_date");
+  add("expenses",permission("expenses.view"),"expenses","id,name,amount,expense_date,notes","expense_date");
+  add("returns",permission("sales.view"),"sales_returns","id,return_no,sales_invoice_id,customer_id,return_date,refund_total,notes","return_date");
+  add("movements",permission("inventory.view"),"stock_movements","id,product_id,movement_date,movement_type,quantity_delta,unit_cost,source_type,source_id,notes","movement_date");
+  await Promise.all(jobs);
+  const tasks=[];
+  if(permission("inventory.view"))tasks.push(client.from("product_stock_balances").select("product_id,code,name,unit,minimum_stock,quantity_on_hand,average_cost,stock_value,below_minimum").eq("business_id",activeBusinessId).then(({data,error})=>{if(error)throw error;reportData.stock=data||[];}));else reportData.stock=[];
+  if(permission("parties.view"))tasks.push(Promise.all([
+   client.from("parties").select("id,name,kind,phone,customer_type").eq("business_id",activeBusinessId).order("name"),
+   client.from("party_account_balances").select("party_id,kind,name,phone,opening_balance,sales_total,purchases_total,customer_payments,supplier_payments,returns_total,customer_net_balance,supplier_net_balance").eq("business_id",activeBusinessId),
+   fetchReportRows("party_account_statement","party_id,party_name,entry_type,reference_no,entry_date,debit,credit,description","entry_date",from,to)
+  ]).then(([p,b,s])=>{if(p.error)throw p.error;if(b.error)throw b.error;reportData.parties=p.data||[];reportData.partyBalances=b.data||[];reportData.statements=s;}));else{reportData.parties=[];reportData.partyBalances=[];reportData.statements=[];}
+  await Promise.all(tasks);
+  reportData.salesItems=[];
+  if(permission("sales.view")&&reportData.sales.length){
+   const ids=reportData.sales.map(x=>x.id);
+   for(let i=0;i<ids.length;i+=100){
+    const {data,error}=await client.from("sales_items").select("id,invoice_id,product_name_snapshot,quantity,unit_price,line_discount,unit_cost_snapshot,line_total,returned_quantity").eq("business_id",activeBusinessId).in("invoice_id",ids.slice(i,i+100));
+    if(error)throw error;reportData.salesItems.push(...(data||[]));
+   }
+  }
+  reportData.purchaseItems=[];
+  if(permission("purchases.view")&&reportData.purchases.length){
+   const ids=reportData.purchases.map(x=>x.id);
+   for(let i=0;i<ids.length;i+=100){
+    const {data,error}=await client.from("purchase_items").select("id,invoice_id,product_name_snapshot,quantity,unit_price,allocated_discount,net_line_total,unit_landed_cost").eq("business_id",activeBusinessId).in("invoice_id",ids.slice(i,i+100));
+    if(error)throw error;reportData.purchaseItems.push(...(data||[]));
+   }
+  }
+  reportData.returnItems=[];
+  if(permission("sales.view")&&reportData.returns.length){
+   const ids=reportData.returns.map(x=>x.id);
+   for(let i=0;i<ids.length;i+=100){
+    const {data,error}=await client.from("sales_return_items").select("id,return_id,sales_item_id,product_id,quantity,condition,refund_amount").eq("business_id",activeBusinessId).in("return_id",ids.slice(i,i+100));
+    if(error)throw error;reportData.returnItems.push(...(data||[]));
+   }
+  }
+  renderReports(from,to);
+  message("globalMessage","تم تحديث التقارير. راجع نطاق التاريخ وملاحظات كل قسم قبل الاعتماد.");
+ }catch(e){console.error(e);$("reportResults").innerHTML='<p class="muted">تعذر تحميل التقارير: '+esc(e?.message||"خطأ غير معروف")+'</p>';fail(e);}
+}
+function renderReports(from,to){
+ const d=reportData,sales=reportSum(d.sales,"total"),purchases=reportSum(d.purchases,"total");
+ const salesPaid=reportSum(d.payments.filter(x=>x.direction==="in"),"amount"),purchasePaid=reportSum(d.payments.filter(x=>x.direction==="out"),"amount");
+ const expense=reportSum(d.expenses,"amount"),returns=reportSum(d.returns,"refund_total");
+ const currentSalesDue=reportSum(d.sales,"due_total"),currentPurchaseDue=reportSum(d.purchases,"due_total");
+ const margin=d.salesItems.reduce((a,x)=>a+Number(x.line_total||0)-Number(x.quantity||0)*Number(x.unit_cost_snapshot||0),0);
+ const cards=[
+  ["إجمالي فواتير المبيعات",sales],["إجمالي فواتير المشتريات",purchases],
+  ["تحصيلات العملاء خلال الفترة",salesPaid],["مدفوعات الموردين خلال الفترة",purchasePaid],
+  ["المصروفات خلال الفترة",expense],["قيمة المرتجعات خلال الفترة",returns],
+  ["المتبقي الحالي لفواتير المبيعات بالفترة",currentSalesDue],["المتبقي الحالي لفواتير المشتريات بالفترة",currentPurchaseDue]
+ ];
+ $("reportStats").innerHTML=cards.filter((x,i)=>i<2?permission(i===0?"sales.view":"purchases.view"):i<4?permission("payments.view"):i===4?permission("expenses.view"):i===5?permission("sales.view"):i<8?(i===6?permission("sales.view"):permission("purchases.view")):false).map(x=>'<div class="stat"><strong>'+reportMoney(x[1])+'</strong><span>'+esc(x[0])+'</span></div>').join("");
+ const parts=[];
+ if(permission("sales.view"))parts.push('<div class="subpanel"><h4>المبيعات</h4><p>عدد الفواتير: '+d.sales.length+' · الإجمالي: '+reportMoney(sales)+' · المتبقي الحالي: '+reportMoney(currentSalesDue)+'</p><p class="muted">المتبقي الحالي هو due_total الحالي للفواتير التي تاريخها داخل الفترة، وليس رصيدًا تاريخيًا كما كان في نهاية الفترة.</p></div>');
+ if(permission("purchases.view"))parts.push('<div class="subpanel"><h4>المشتريات</h4><p>عدد الفواتير: '+d.purchases.length+' · الإجمالي: '+reportMoney(purchases)+' · المتبقي الحالي: '+reportMoney(currentPurchaseDue)+'</p><p class="muted">المتبقي الحالي للفواتير المختارة، وليس رصيدًا تاريخيًا كما كان في نهاية الفترة.</p></div>');
+ if(permission("payments.view"))parts.push('<div class="subpanel"><h4>التحصيلات والمدفوعات</h4><p>مقبوضات مسجلة: '+reportMoney(salesPaid)+' · مدفوعات مسجلة: '+reportMoney(purchasePaid)+' · عدد الدفعات: '+d.payments.length+'</p><p class="muted">مجمّعة حسب تاريخ الدفع الفعلي، وليس تاريخ الفاتورة.</p></div>');
+ if(permission("expenses.view"))parts.push('<div class="subpanel"><h4>المصروفات</h4><p>عدد العمليات: '+d.expenses.length+' · الإجمالي: '+reportMoney(expense)+'</p></div>');
+ if(permission("cash.view"))parts.push('<div class="subpanel"><h4>حركة الخزنة</h4><p>داخل: '+reportMoney(reportSum(d.cash.filter(x=>x.direction==="in"),"amount"))+' · خارج: '+reportMoney(reportSum(d.cash.filter(x=>x.direction==="out"),"amount"))+' · عدد الحركات: '+d.cash.length+'</p></div>');
+ if(permission("sales.view"))parts.push('<div class="subpanel"><h4>المرتجعات</h4><p>عدد المرتجعات: '+d.returns.length+' · قيمة الردود: '+reportMoney(returns)+'</p></div>');
+ if(permission("inventory.view"))parts.push('<div class="subpanel"><h4>المخزون الحالي</h4><p>عدد المنتجات: '+d.stock.length+' · قيمة المخزون حسب متوسط التكلفة الحالي: '+reportMoney(reportSum(d.stock,"stock_value"))+' · تحت حد التنبيه: '+d.stock.filter(x=>x.below_minimum).length+'</p><p class="muted">هذا رصيد لحظي حالي، وليس رصيدًا تاريخيًا في نهاية الفترة المختارة.</p></div>');
+ if(permission("sales.view"))parts.push('<div class="subpanel"><h4>هامش مجمل البنود التقديري</h4><p>'+reportMoney(margin)+'</p><p class="muted">محسوب من line_total ناقص تكلفة الوحدة المحفوظة وقت البيع × الكمية، قبل توزيع خصم الفاتورة الإجمالي وقبل أثر المرتجعات؛ لا يُعامل كصافي ربح محاسبي.</p></div>');
+ if(permission("parties.view"))parts.push('<div class="subpanel"><h4>حسابات العملاء والموردين</h4><p>عدد الحسابات: '+d.parties.length+' · كشوف الحركات داخل الفترة: '+d.statements.length+'</p><p class="muted">الأرصدة في ورقة الأرصدة هي الأرصدة الحالية، وكشف الحساب مفلتر بتاريخ الحركة.</p></div>');
+ $("reportResults").innerHTML=parts.join("")||'<p class="muted">لا توجد أقسام تقارير متاحة لصلاحيات هذا الحساب.</p>';
+}
+function exportReportsExcel(){
+ if(!window.XLSX)return message("globalMessage","مكتبة Excel لم تُحمّل. تحقق من اتصال الإنترنت ثم أعد تحميل الصفحة.");
+ const d=reportData;if(!d||!Object.keys(d).length)return message("globalMessage","حمّل التقارير أولًا قبل التصدير.");
+ const wb=XLSX.utils.book_new(),add=(name,rows)=>{if(rows&&rows.length)XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),name);};
+ const map=(rows,fn)=>rows.map(fn);
+ if(permission("sales.view")){
+  add("فواتير المبيعات",map(d.sales,x=>({رقم_الفاتورة:x.invoice_no,التاريخ:x.invoice_date,العميل:x.customer_name_snapshot,الإجمالي:x.total,المدفوع_وقت_الفاتورة:x.paid_total,المتبقي_الحالي:x.due_total,الحالة:x.status})));
+  add("بنود المبيعات",map(d.salesItems,x=>({رقم_الفاتورة:(d.sales.find(i=>i.id===x.invoice_id)||{}).invoice_no,المنتج:x.product_name_snapshot,الكمية:x.quantity,سعر_الوحدة:x.unit_price,خصم_البند:x.line_discount,الإجمالي:x.line_total,تكلفة_الوحدة_وقت_البيع:x.unit_cost_snapshot,كمية_مرتجعة:x.returned_quantity})));
+  add("المرتجعات",map(d.returns,x=>({رقم_المرتجع:x.return_no,تاريخ_المرتجع:x.return_date,قيمة_الرد:x.refund_total,ملاحظات:x.notes})));
+  add("بنود_المرتجعات",map(d.returnItems,x=>({معرف_المرتجع:x.return_id,معرف_بند_البيع:x.sales_item_id,الكمية:x.quantity,الحالة:x.condition,قيمة_الرد:x.refund_amount})));
+ }
+ if(permission("purchases.view")){
+  add("فواتير_المشتريات",map(d.purchases,x=>({رقم_الفاتورة:x.invoice_no,التاريخ:x.invoice_date,المورد:x.supplier_name_snapshot,الإجمالي:x.total,المدفوع_وقت_الفاتورة:x.paid_total,المتبقي_الحالي:x.due_total,الحالة:x.status})));
+  add("بنود_المشتريات",map(d.purchaseItems,x=>({رقم_الفاتورة:(d.purchases.find(i=>i.id===x.invoice_id)||{}).invoice_no,المنتج:x.product_name_snapshot,الكمية:x.quantity,سعر_الوحدة:x.unit_price,الخصم_الموزع:x.allocated_discount,صافي_البند:x.net_line_total,تكلفة_الوحدة_النهائية:x.unit_landed_cost})));
+ }
+ if(permission("payments.view"))add("الدفعات",map(d.payments,x=>({التاريخ:x.payment_date,الاتجاه:x.direction==="in"?"مقبوض":"مدفوع",المبلغ:x.amount,الطريقة:x.method,المرجع:x.reference,ملاحظات:x.notes,معرف_الفاتورة:x.invoice_id,معرف_الحساب:x.party_id})));
+ if(permission("cash.view"))add("حركات_الخزنة",map(d.cash,x=>({التاريخ:x.transaction_date,الاتجاه:x.direction==="in"?"داخل":"خارج",النوع:x.transaction_type,المبلغ:x.amount,السبب:x.reason,ملاحظات:x.notes})));
+ if(permission("expenses.view"))add("المصروفات",map(d.expenses,x=>({التاريخ:x.expense_date,المصروف:x.name,المبلغ:x.amount,ملاحظات:x.notes})));
+ if(permission("inventory.view")){
+  add("المخزون_الحالي",map(d.stock,x=>({كود:x.code,المنتج:x.name,الوحدة:x.unit,الرصيد_الحالي:x.quantity_on_hand,متوسط_التكلفة_الحالي:x.average_cost,قيمة_المخزون_الحالية:x.stock_value,تحت_حد_التنبيه:x.below_minimum?"نعم":"لا"})));
+  add("حركات_المخزون",map(d.movements,x=>({التاريخ:x.movement_date,معرف_المنتج:x.product_id,نوع_الحركة:x.movement_type,تغير_الكمية:x.quantity_delta,تكلفة_الوحدة:x.unit_cost,المصدر:x.source_type,ملاحظات:x.notes})));
+ }
+ if(permission("parties.view")){
+  add("العملاء_والموردون",map(d.parties,x=>({الاسم:x.name,النوع:x.kind,الهاتف:x.phone,تصنيف_العميل:x.customer_type})));
+  add("أرصدة_الحسابات_الحالية",map(d.partyBalances,x=>({الاسم:x.name,النوع:x.kind,الرصيد_الافتتاحي:x.opening_balance,إجمالي_المبيعات:x.sales_total,إجمالي_المشتريات:x.purchases_total,تحصيلات_العملاء:x.customer_payments,مدفوعات_الموردين:x.supplier_payments,المرتجعات:x.returns_total,مستحق_من_العملاء:x.customer_net_balance,مستحق_للموردين:x.supplier_net_balance})));
+  add("كشف_الحساب_للفترة",map(d.statements,x=>({الحساب:x.party_name,التاريخ:x.entry_date,النوع:x.entry_type,المرجع:x.reference_no,مدين:x.debit,دائن:x.credit,البيان:x.description})));
+ }
+ const from=$("reportFrom").value,to=$("reportTo").value;
+ const filename="AlNesr_Reports_"+from+"_to_"+to+".xlsx";
+ XLSX.writeFile(wb,filename);
+ message("globalMessage","تم تجهيز ملف Excel بالتقارير المتاحة حسب صلاحيات حسابك.");
+}
