@@ -136,6 +136,8 @@ with report_dates as (
   select business_id,expense_date from public.expenses
   union
   select business_id,transaction_date from public.cash_transactions
+  union
+  select business_id,payment_date from public.payments
 )
 select d.business_id,d.report_date,
        coalesce(s.sales_total,0)::numeric(14,2) as sales_total,
