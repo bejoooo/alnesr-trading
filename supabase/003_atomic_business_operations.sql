@@ -17,6 +17,30 @@ create index if not exists sales_items_invoice_idx
 create index if not exists sales_returns_invoice_idx
   on public.sales_returns (business_id, sales_invoice_id);
 
+-- Average cost is ledger-derived and must only be changed by trusted database RPCs.
+-- SECURITY DEFINER operations run as the database owner; direct PostgREST writes do not.
+create or replace function public.guard_product_average_cost()
+returns trigger
+language plpgsql
+set search_path = public
+as $
+begin
+  if tg_op = 'INSERT' then
+    if new.average_cost <> 0 and current_user <> 'postgres' then
+      raise exception 'Average cost can only be set by inventory operations';
+    end if;
+  elsif new.average_cost is distinct from old.average_cost and current_user <> 'postgres' then
+    raise exception 'Average cost can only be changed by inventory operations';
+  end if;
+  return new;
+end;
+$;
+
+drop trigger if exists products_guard_average_cost on public.products;
+create trigger products_guard_average_cost
+before insert or update of average_cost on public.products
+for each row execute function public.guard_product_average_cost();
+
 create or replace function public.post_purchase(
   p_business_id uuid,
   p_invoice_no text,
