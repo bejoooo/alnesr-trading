@@ -31,8 +31,8 @@ client.auth.getSession().then(({data,error})=>{if(error)return fail(error);if(da
 
 const canPurchases=()=>permission("purchases.view");
 let suppliers=[],purchaseInvoices=[],purchaseLineCount=0;
-$("showProductsTab").addEventListener("click",()=>{show("purchasesModule",false);show("productsModule",true);$("showProductsTab").classList.remove("secondary");$("showPurchasesTab").classList.add("secondary");});
-$("showPurchasesTab").addEventListener("click",()=>{if(!canPurchases())return message("globalMessage","ليس لديك صلاحية عرض المشتريات.");show("productsModule",false);show("purchasesModule",true);$("showProductsTab").classList.add("secondary");$("showPurchasesTab").classList.remove("secondary");loadPurchasesModule();});
+$("showProductsTab").addEventListener("click",()=>{show("purchasesModule",false);show("salesModule",false);show("productsModule",true);$("showProductsTab").classList.remove("secondary");$("showPurchasesTab").classList.add("secondary");});
+$("showPurchasesTab").addEventListener("click",()=>{if(!canPurchases())return message("globalMessage","ليس لديك صلاحية عرض المشتريات.");show("productsModule",false);show("salesModule",false);show("purchasesModule",true);$("showProductsTab").classList.add("secondary");$("showPurchasesTab").classList.remove("secondary");loadPurchasesModule();});
 $("newSupplierBtn").addEventListener("click",()=>{if(!permission("parties.create"))return message("globalMessage","ليس لديك صلاحية إضافة مورد.");show("supplierEditor",true);});
 $("cancelSupplier").addEventListener("click",()=>show("supplierEditor",false));
 $("supplierForm").addEventListener("submit",saveSupplier);
