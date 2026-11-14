@@ -77,6 +77,27 @@ begin
   ) then
     raise exception 'Row level security is not enabled on sales_invoices';
   end if;
+
+  if not exists (
+    select 1 from pg_trigger
+    where tgrelid='public.products'::regclass
+      and tgname='products_guard_average_cost' and not tgisinternal
+  ) then
+    raise exception 'Product average-cost protection trigger is missing';
+  end if;
+
+  if exists (
+    select 1 from pg_policies
+    where schemaname='public'
+      and tablename = any(array[
+        'purchase_invoices','purchase_items','sales_invoices','sales_items',
+        'payments','stock_movements','sales_returns','sales_return_items',
+        'expenses','cash_transactions'
+      ])
+      and cmd <> 'SELECT'
+  ) then
+    raise exception 'Transactional tables still expose direct write policies';
+  end if;
 end;
 $$;
 
