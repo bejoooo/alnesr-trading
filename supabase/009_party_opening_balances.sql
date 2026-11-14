@@ -70,8 +70,16 @@ left join lateral (
   where x.business_id=p.business_id and x.supplier_id=p.id and x.status<>'void'
 ) pi on true
 left join lateral (
-  select sum(case when x.direction='in' then x.amount else 0 end) as customer_paid,
-         sum(case when x.direction='out' then x.amount else 0 end) as supplier_paid,
+  select sum(case when x.direction='in' and exists (
+           select 1 from public.sales_invoices si
+           where si.id=x.invoice_id and si.business_id=x.business_id
+             and si.customer_id=p.id
+         ) then x.amount else 0 end) as customer_paid,
+         sum(case when x.direction='out' and exists (
+           select 1 from public.purchase_invoices pi
+           where pi.id=x.invoice_id and pi.business_id=x.business_id
+             and pi.supplier_id=p.id
+         ) then x.amount else 0 end) as supplier_paid,
          sum(case when x.direction='out' and exists (
            select 1 from public.sales_invoices si
            where si.id=x.invoice_id and si.business_id=x.business_id
