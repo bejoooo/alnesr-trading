@@ -175,7 +175,6 @@ async function loadPartyOpeningOptions(){if(!permission("parties.edit")){$("part
 function updateOpeningPartySide(){const p=openingParties.find(x=>x.id===$("openingParty").value);const side=$("openingPartySide");if(!p){side.disabled=false;$("partyOpeningHint").textContent="اختر حسابًا لعرض حالته الحالية.";return;}side.disabled=p.kind!=="both";if(p.kind==="supplier")side.value="payable";else if(p.kind==="customer")side.value="receivable";else side.value=p.opening_balance_side||"receivable";$("partyOpeningHint").textContent="الرصيد الحالي المسجل: "+money(p.opening_balance)+" · "+(p.opening_balance_side==="payable"?"مستحق علينا":"مستحق لنا")+". إذا كان الحساب عليه حركة سابقة، سترفض قاعدة البيانات التعديل لحماية السجل.";}
 async function savePartyOpeningBalance(e){e.preventDefault();if(!permission("parties.edit"))return message("globalMessage","ليس لديك صلاحية تعديل أرصدة الحسابات.");const f=new FormData(e.currentTarget),p=openingParties.find(x=>x.id===f.get("party_id")),amount=Number(f.get("amount"));if(!p||!Number.isFinite(amount)||amount<0)return message("globalMessage","اختر حسابًا وأدخل قيمة غير سالبة.");let side=String(f.get("side"));if(p.kind==="supplier")side="payable";if(p.kind==="customer")side="receivable";message("globalMessage","جارٍ حفظ الرصيد الافتتاحي للحساب...");const {error}=await client.rpc("set_party_opening_balance",{p_business_id:activeBusinessId,p_party_id:p.id,p_amount:amount,p_side:side});if(error)return fail(error);message("globalMessage","تم حفظ الرصيد الافتتاحي للحساب.");await loadPartyOpeningOptions();if(permission("purchases.view"))await loadPurchasesModule();if(permission("sales.view"))await loadSalesModule();}
 
-})();
 
 // ===== Reports & Excel export =====
 const reportData={};
@@ -371,3 +370,5 @@ async function restoreBusinessBackup(){
  message("globalMessage","تمت استعادة البيانات. جارٍ تحديث الواجهة...");
  await loadWorkspace();
 }
+
+})();
