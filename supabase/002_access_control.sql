@@ -22,7 +22,17 @@ as $$
             then m.permissions -> permission_key = 'true'::jsonb
           else
             case m.role
-              when 'manager' then permission_key not in ('members.manage', 'settings.edit', 'audit.view')
+              when 'manager' then permission_key in (
+                'products.view', 'products.create', 'products.edit',
+                'parties.view', 'parties.create', 'parties.edit',
+                'purchases.view', 'purchases.create', 'purchases.edit',
+                'sales.view', 'sales.create', 'sales.edit',
+                'payments.view', 'payments.create', 'payments.record',
+                'inventory.view', 'inventory.create',
+                'expenses.view', 'expenses.create', 'expenses.edit',
+                'cash.view', 'cash.create', 'cash.deposit', 'cash.withdraw',
+                'settings.view'
+              )
               when 'cashier' then permission_key in (
                 'products.view', 'parties.view', 'parties.create',
                 'sales.view', 'sales.create', 'sales.edit',
