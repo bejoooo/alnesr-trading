@@ -137,6 +137,9 @@ begin
     if not public.has_business_permission(p_business_id,'cash.create') then
       raise exception 'Not authorized to record the cash payment';
     end if;
+    if coalesce((select sum(case when direction='in' then amount else -amount end) from public.cash_transactions where business_id=p_business_id),0) < p_paid_amount then
+      raise exception 'Insufficient cash balance for this supplier payment';
+    end if;
     insert into public.payments(business_id,party_id,invoice_id,direction,amount,payment_date,method,notes,created_by)
     values (p_business_id,p_supplier_id,v_invoice_id,'out',p_paid_amount,coalesce(p_invoice_date,current_date),'cash','دفعة عند إنشاء فاتورة مشتريات',auth.uid());
     insert into public.cash_transactions(business_id,transaction_date,direction,transaction_type,amount,party_id,invoice_id,reason,created_by)
@@ -357,6 +360,9 @@ begin
   end if;
 
   if lower(p_method)='cash' then
+    if v_direction='out' and coalesce((select sum(case when direction='in' then amount else -amount end) from public.cash_transactions where business_id=p_business_id),0) < p_amount then
+      raise exception 'Insufficient cash balance for this supplier payment';
+    end if;
     insert into public.cash_transactions(business_id,transaction_date,direction,transaction_type,amount,party_id,invoice_id,reason,notes,created_by)
     values(p_business_id,coalesce(p_payment_date,current_date),v_direction,
       case when p_invoice_type='sale' then 'sale_payment' else 'purchase_payment' end,
@@ -417,6 +423,9 @@ begin
   end if;
   if coalesce(trim(p_name),'')='' or p_amount is null or p_amount<=0 then
     raise exception 'Expense name and positive amount are required';
+  end if;
+  if coalesce((select sum(case when direction='in' then amount else -amount end) from public.cash_transactions where business_id=p_business_id),0) < p_amount then
+    raise exception 'Insufficient cash balance for this expense';
   end if;
   insert into public.expenses(business_id,name,amount,expense_date,notes,created_by)
   values(p_business_id,trim(p_name),p_amount,coalesce(p_expense_date,current_date),p_notes,auth.uid())
