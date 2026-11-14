@@ -84,6 +84,7 @@ begin
     raise exception 'Not authorized to set opening cash balance';
   end if;
   if p_amount is null or p_amount<0 then raise exception 'Opening cash balance cannot be negative'; end if;
+  perform pg_advisory_xact_lock(hashtextextended(p_business_id::text,0));
   if exists(select 1 from public.cash_transactions where business_id=p_business_id) then
     raise exception 'Opening balance can only be set before the first cash transaction';
   end if;
