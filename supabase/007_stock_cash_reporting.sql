@@ -127,7 +127,16 @@ group by business_id;
 
 create or replace view public.daily_business_summary
 with (security_invoker=true) as
-select b.id as business_id,d.report_date,
+with report_dates as (
+  select business_id,invoice_date as report_date from public.sales_invoices
+  union
+  select business_id,invoice_date from public.purchase_invoices
+  union
+  select business_id,expense_date from public.expenses
+  union
+  select business_id,transaction_date from public.cash_transactions
+)
+select d.business_id,d.report_date,
        coalesce(s.sales_total,0)::numeric(14,2) as sales_total,
        coalesce(s.sales_paid,0)::numeric(14,2) as sales_collected,
        coalesce(s.sales_due,0)::numeric(14,2) as sales_outstanding,
@@ -136,29 +145,26 @@ select b.id as business_id,d.report_date,
        coalesce(e.expenses_total,0)::numeric(14,2) as expenses_total,
        coalesce(c.cash_in,0)::numeric(14,2) as cash_in,
        coalesce(c.cash_out,0)::numeric(14,2) as cash_out
-from public.businesses b
-cross join lateral (
-  select current_date as report_date
-) d
+from report_dates d
 left join lateral (
   select sum(total) sales_total,sum(paid_total) sales_paid,sum(due_total) sales_due
   from public.sales_invoices x
-  where x.business_id=b.id and x.invoice_date=d.report_date and x.status<>'void'
+  where x.business_id=d.business_id and x.invoice_date=d.report_date and x.status<>'void'
 ) s on true
 left join lateral (
   select sum(total) purchase_total,sum(paid_total) purchase_paid
   from public.purchase_invoices x
-  where x.business_id=b.id and x.invoice_date=d.report_date and x.status<>'void'
+  where x.business_id=d.business_id and x.invoice_date=d.report_date and x.status<>'void'
 ) p on true
 left join lateral (
   select sum(amount) expenses_total from public.expenses x
-  where x.business_id=b.id and x.expense_date=d.report_date
+  where x.business_id=d.business_id and x.expense_date=d.report_date
 ) e on true
 left join lateral (
   select sum(case when direction='in' then amount else 0 end) cash_in,
          sum(case when direction='out' then amount else 0 end) cash_out
   from public.cash_transactions x
-  where x.business_id=b.id and x.transaction_date=d.report_date
+  where x.business_id=d.business_id and x.transaction_date=d.report_date
 ) c on true;
 
 revoke all on function public.post_stock_adjustment(uuid,uuid,numeric,text,date,numeric) from public,anon;
