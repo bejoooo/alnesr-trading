@@ -23,7 +23,7 @@ create or replace function public.guard_product_average_cost()
 returns trigger
 language plpgsql
 set search_path = public
-as $
+as $$
 begin
   if tg_op = 'INSERT' then
     if new.average_cost <> 0 and current_user <> 'postgres' then
@@ -34,7 +34,7 @@ begin
   end if;
   return new;
 end;
-$;
+$$;
 
 drop trigger if exists products_guard_average_cost on public.products;
 create trigger products_guard_average_cost
