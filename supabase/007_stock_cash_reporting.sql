@@ -167,10 +167,46 @@ left join lateral (
   where x.business_id=d.business_id and x.transaction_date=d.report_date
 ) c on true;
 
+
+create or replace function public.record_cash_withdrawal(
+  p_business_id uuid,
+  p_amount numeric,
+  p_reason text,
+  p_transaction_date date default current_date,
+  p_notes text default null
+) returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare v_id uuid;
+begin
+  if auth.uid() is null or not public.has_business_permission(p_business_id,'cash.withdraw') then
+    raise exception 'Not authorized to withdraw cash';
+  end if;
+  if p_amount is null or p_amount<=0 or coalesce(trim(p_reason),'')='' then
+    raise exception 'Positive amount and withdrawal reason are required';
+  end if;
+  if coalesce((select balance from public.cash_balances where business_id=p_business_id),0)<p_amount then
+    raise exception 'Cash withdrawal exceeds available cash balance';
+  end if;
+  insert into public.cash_transactions(
+    business_id,transaction_date,direction,transaction_type,amount,reason,notes,created_by
+  ) values (
+    p_business_id,coalesce(p_transaction_date,current_date),'out','other',
+    p_amount,trim(p_reason),p_notes,auth.uid()
+  ) returning id into v_id;
+  insert into public.audit_log(business_id,actor_id,action,entity_type,entity_id,details)
+  values(p_business_id,auth.uid(),'cash_withdrawal','cash_transaction',v_id,
+    jsonb_build_object('amount',p_amount,'reason',p_reason));
+  return v_id;
+end;
+$$;
+
 revoke all on function public.post_stock_adjustment(uuid,uuid,numeric,text,date,numeric) from public,anon;
-revoke all on function public.record_cash_opening_balance(uuid,numeric,date,text) from public,anon;
+revoke all on function public.record_cash_opening_balance(uuid,numeric,date,text) from public,anon;\nrevoke all on function public.record_cash_withdrawal(uuid,numeric,text,date,text) from public,anon;
 grant execute on function public.post_stock_adjustment(uuid,uuid,numeric,text,date,numeric) to authenticated;
-grant execute on function public.record_cash_opening_balance(uuid,numeric,date,text) to authenticated;
+grant execute on function public.record_cash_opening_balance(uuid,numeric,date,text) to authenticated;\ngrant execute on function public.record_cash_withdrawal(uuid,numeric,text,date,text) to authenticated;
 
 grant select on public.product_stock_balances to authenticated;
 grant select on public.cash_balances to authenticated;
