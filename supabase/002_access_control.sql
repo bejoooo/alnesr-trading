@@ -171,11 +171,11 @@ begin
       item.table_name || '_delete', item.table_name, item.permission_prefix || '.delete'
     );
   end loop;
-end $;
+end $$;
 
 -- Transactional tables are writable only through the SECURITY DEFINER RPCs.
 -- This prevents clients from bypassing stock, invoice, payment, return and cash invariants.
-do $
+do $$
 declare
   table_name text;
 begin
@@ -188,7 +188,7 @@ begin
     execute format('drop policy if exists %I on public.%I', table_name || '_update', table_name);
     execute format('drop policy if exists %I on public.%I', table_name || '_delete', table_name);
   end loop;
-end $;
+end $$;
 
 -- Audit entries are readable by owner/admin and are not directly editable by staff.
 drop policy if exists audit_log_member_access on public.audit_log;
