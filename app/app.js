@@ -172,7 +172,7 @@ $("runReports").addEventListener("click",loadReports);
 $("exportReports").addEventListener("click",exportReportsExcel);
 function reportDate(d){const x=new Date(d);return x.getFullYear()+"-"+String(x.getMonth()+1).padStart(2,"0")+"-"+String(x.getDate()).padStart(2,"0");}
 function applyReportPreset(){
- const preset=$("reportPreset").value,now=new Date(),end=reportDate(now);let start=end;
+ const preset=$("reportPreset").value;if(preset==="custom")return;const now=new Date(),end=reportDate(now);let start=end;
  if(preset==="week"){const day=(now.getDay()+6)%7;const d=new Date(now);d.setDate(now.getDate()-day);start=reportDate(d);}
  if(preset==="month"){start=reportDate(new Date(now.getFullYear(),now.getMonth(),1));}
  $("reportFrom").value=start;$("reportTo").value=end;
@@ -275,7 +275,7 @@ function renderReports(from,to){
 function exportReportsExcel(){
  if(!window.XLSX)return message("globalMessage","مكتبة Excel لم تُحمّل. تحقق من اتصال الإنترنت ثم أعد تحميل الصفحة.");
  const d=reportData;if(!d||!Object.keys(d).length)return message("globalMessage","حمّل التقارير أولًا قبل التصدير.");
- const wb=XLSX.utils.book_new(),add=(name,rows)=>{if(rows&&rows.length)XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),name);};
+ const wb=XLSX.utils.book_new(),add=(name,rows)=>{if(Array.isArray(rows))XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),name);};
  const map=(rows,fn)=>rows.map(fn);
  if(permission("sales.view")){
   add("فواتير المبيعات",map(d.sales,x=>({رقم_الفاتورة:x.invoice_no,التاريخ:x.invoice_date,العميل:x.customer_name_snapshot,الإجمالي:x.total,المدفوع_وقت_الفاتورة:x.paid_total,المتبقي_الحالي:x.due_total,الحالة:x.status})));
@@ -300,6 +300,7 @@ function exportReportsExcel(){
   add("كشف_الحساب_للفترة",map(d.statements,x=>({الحساب:x.party_name,التاريخ:x.entry_date,النوع:x.entry_type,المرجع:x.reference_no,مدين:x.debit,دائن:x.credit,البيان:x.description})));
  }
  const from=$("reportFrom").value,to=$("reportTo").value;
+ add("ملخص_الفترة",[{من_تاريخ:from,إلى_تاريخ:to,ملاحظة:"الأرصدة الحالية ليست تاريخية؛ المتبقي الحالي للفواتير لا يمثل رصيد نهاية الفترة."},{البند:"إجمالي المبيعات",القيمة:reportSum(d.sales,"total")},{البند:"إجمالي المشتريات",القيمة:reportSum(d.purchases,"total")},{البند:"المصروفات",القيمة:reportSum(d.expenses,"amount")},{البند:"قيمة المرتجعات",القيمة:reportSum(d.returns,"refund_total")}]);
  const filename="AlNesr_Reports_"+from+"_to_"+to+".xlsx";
  XLSX.writeFile(wb,filename);
  message("globalMessage","تم تجهيز ملف Excel بالتقارير المتاحة حسب صلاحيات حسابك.");
