@@ -76,6 +76,9 @@ begin
   if v_cash_refund>0 and not public.has_business_permission(p_business_id,'cash.withdraw') then
     raise exception 'Not authorized to refund cash';
   end if;
+  if v_cash_refund>coalesce((select sum(case when direction='in' then amount else -amount end) from public.cash_transactions where business_id=p_business_id),0) then
+    raise exception 'Insufficient cash balance for this customer refund';
+  end if;
 
   insert into public.sales_returns(
     business_id,return_no,sales_invoice_id,customer_id,return_date,refund_total,notes,created_by
