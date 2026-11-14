@@ -101,7 +101,22 @@ begin
     end if;
   end if;
 
-  return coalesce(new, old);
+  if tg_op = 'DELETE' or (tg_op = 'UPDATE' and old.role = 'owner' and new.role <> 'owner') then
+    if not exists (
+      select 1 from public.business_members m
+      where m.business_id = old.business_id
+        and m.role = 'owner'
+        and m.user_id <> old.user_id
+        and m.active = true
+    ) then
+      raise exception 'A business must keep at least one active owner';
+    end if;
+  end if;
+
+  if tg_op = 'DELETE' then
+    return old;
+  end if;
+  return new;
 end;
 $$;
 
