@@ -69,6 +69,9 @@ begin
   end loop;
 
   if v_cash_refund>v_total_refund then raise exception 'Cash refund exceeds return value'; end if;
+  if v_cash_refund>v_invoice.paid_total then
+    raise exception 'Cash refund cannot exceed the amount already collected on this invoice';
+  end if;
   v_credit_applied := v_total_refund-v_cash_refund;
   if v_credit_applied>v_invoice.due_total then
     raise exception 'Cash refund must cover the portion not offset against the outstanding balance';
@@ -116,7 +119,8 @@ begin
   end loop;
 
   update public.sales_invoices
-  set due_total=due_total-v_credit_applied,
+  set paid_total=paid_total-v_cash_refund,
+      due_total=due_total-v_credit_applied,
       status=case
         when not exists (
           select 1 from public.sales_items si
