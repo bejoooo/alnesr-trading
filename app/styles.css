@@ -3,3 +3,5 @@
 .module-nav{display:flex;gap:8px;margin:4px 0 16px;flex-wrap:wrap}.purchase-lines{display:grid;gap:12px;margin:12px 0}.purchase-line{border:1px solid var(--line);border-radius:10px;padding:12px;display:grid;gap:10px;background:#fff}.purchase-line>label{max-width:100%}.line-head{display:flex;justify-content:space-between;align-items:center}.purchase-line .form-grid{margin:0}.purchase-line .form-grid label{min-width:0}
 .sale-line{border-right:3px solid #9aadb8}.sale-line .form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#saleDetails table{min-width:650px}
 .return-line{border-right:3px solid #b58a55}.return-line input:disabled{background:#f2f5f7;color:#667984}
+
+.cash-actions{flex-wrap:wrap}.cash-actions button{min-width:145px}#cashStats .stat strong{font-size:20px}
