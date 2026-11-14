@@ -205,9 +205,11 @@ begin
     if not found then raise exception 'Customer does not belong to this business'; end if;
   end if;
 
+  -- Match the per-line cent rounding used when inserting sales_items so the
+  -- invoice total always reconciles with the sum of its stored lines.
   select count(*),
-    coalesce(sum((x->>'quantity')::numeric * (x->>'unit_price')::numeric),0),
-    coalesce(sum(coalesce((x->>'line_discount')::numeric,0)),0)
+    coalesce(sum(round((x->>'quantity')::numeric * (x->>'unit_price')::numeric,2)),0),
+    coalesce(sum(round(coalesce((x->>'line_discount')::numeric,0),2)),0)
   into v_item_count,v_gross,v_line_discounts
   from jsonb_array_elements(p_items) x;
 
