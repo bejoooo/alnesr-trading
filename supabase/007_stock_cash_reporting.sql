@@ -139,21 +139,21 @@ with report_dates as (
 )
 select d.business_id,d.report_date,
        coalesce(s.sales_total,0)::numeric(14,2) as sales_total,
-       coalesce(s.sales_paid,0)::numeric(14,2) as sales_collected,
+       coalesce(pay.sales_collected,0)::numeric(14,2) as sales_collected,
        coalesce(s.sales_due,0)::numeric(14,2) as sales_outstanding,
        coalesce(p.purchase_total,0)::numeric(14,2) as purchases_total,
-       coalesce(p.purchase_paid,0)::numeric(14,2) as purchases_paid,
+       coalesce(pay.purchases_paid,0)::numeric(14,2) as purchases_paid,
        coalesce(e.expenses_total,0)::numeric(14,2) as expenses_total,
        coalesce(c.cash_in,0)::numeric(14,2) as cash_in,
        coalesce(c.cash_out,0)::numeric(14,2) as cash_out
 from report_dates d
 left join lateral (
-  select sum(total) sales_total,sum(paid_total) sales_paid,sum(due_total) sales_due
+  select sum(total) sales_total,sum(due_total) sales_due
   from public.sales_invoices x
   where x.business_id=d.business_id and x.invoice_date=d.report_date and x.status<>'void'
 ) s on true
 left join lateral (
-  select sum(total) purchase_total,sum(paid_total) purchase_paid
+  select sum(total) purchase_total
   from public.purchase_invoices x
   where x.business_id=d.business_id and x.invoice_date=d.report_date and x.status<>'void'
 ) p on true
@@ -161,6 +161,12 @@ left join lateral (
   select sum(amount) expenses_total from public.expenses x
   where x.business_id=d.business_id and x.expense_date=d.report_date
 ) e on true
+left join lateral (
+  select sum(case when direction='in' then amount else 0 end) as sales_collected,
+         sum(case when direction='out' then amount else 0 end) as purchases_paid
+  from public.payments x
+  where x.business_id=d.business_id and x.payment_date=d.report_date
+) pay on true
 left join lateral (
   select sum(case when direction='in' then amount else 0 end) cash_in,
          sum(case when direction='out' then amount else 0 end) cash_out
