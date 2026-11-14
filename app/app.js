@@ -31,8 +31,8 @@ applyReportPreset();client.auth.getSession().then(({data,error})=>{if(error)retu
 
 const canPurchases=()=>permission("purchases.view");
 let suppliers=[],purchaseInvoices=[],purchaseLineCount=0;
-$("showProductsTab").addEventListener("click",()=>{show("cashModule",false);show("purchasesModule",false);show("salesModule",false);show("productsModule",true);$("showCashTab").classList.add("secondary");$("showProductsTab").classList.remove("secondary");$("showPurchasesTab").classList.add("secondary");});
-$("showPurchasesTab").addEventListener("click",()=>{if(!canPurchases())return message("globalMessage","ليس لديك صلاحية عرض المشتريات.");show("productsModule",false);show("salesModule",false);show("cashModule",false);show("purchasesModule",true);$("showCashTab").classList.add("secondary");$("showProductsTab").classList.add("secondary");$("showPurchasesTab").classList.remove("secondary");loadPurchasesModule();});
+$("showProductsTab").addEventListener("click",()=>{show("reportsModule",false);show("cashModule",false);show("purchasesModule",false);show("salesModule",false);show("productsModule",true);$("showCashTab").classList.add("secondary");$("showProductsTab").classList.remove("secondary");$("showPurchasesTab").classList.add("secondary");});
+$("showPurchasesTab").addEventListener("click",()=>{if(!canPurchases())return message("globalMessage","ليس لديك صلاحية عرض المشتريات.");show("reportsModule",false);show("productsModule",false);show("salesModule",false);show("cashModule",false);show("purchasesModule",true);$("showCashTab").classList.add("secondary");$("showProductsTab").classList.add("secondary");$("showPurchasesTab").classList.remove("secondary");loadPurchasesModule();});
 $("newSupplierBtn").addEventListener("click",()=>{if(!permission("parties.create"))return message("globalMessage","ليس لديك صلاحية إضافة مورد.");show("supplierEditor",true);});
 $("cancelSupplier").addEventListener("click",()=>show("supplierEditor",false));
 $("supplierForm").addEventListener("submit",saveSupplier);
@@ -68,7 +68,7 @@ async function saveSupplierPayment(e){e.preventDefault();if(!permission("payment
 
 
 let customers=[],salesInvoices=[],saleLineCount=0,currentSalePrint=null;
-$("showSalesTab").addEventListener("click",()=>{if(!permission("sales.view"))return message("globalMessage","ليس لديك صلاحية عرض المبيعات.");show("productsModule",false);show("purchasesModule",false);show("cashModule",false);show("salesModule",true);$("showCashTab").classList.add("secondary");$("showProductsTab").classList.add("secondary");$("showPurchasesTab").classList.add("secondary");$("showSalesTab").classList.remove("secondary");loadSalesModule();});
+$("showSalesTab").addEventListener("click",()=>{if(!permission("sales.view"))return message("globalMessage","ليس لديك صلاحية عرض المبيعات.");show("reportsModule",false);show("productsModule",false);show("purchasesModule",false);show("cashModule",false);show("salesModule",true);$("showCashTab").classList.add("secondary");$("showProductsTab").classList.add("secondary");$("showPurchasesTab").classList.add("secondary");$("showSalesTab").classList.remove("secondary");loadSalesModule();});
 const oldProductsTab=$("showProductsTab");
 oldProductsTab.addEventListener("click",()=>{$("showSalesTab").classList.add("secondary");});
 $("showPurchasesTab").addEventListener("click",()=>{$("showSalesTab").classList.add("secondary");});
@@ -88,7 +88,7 @@ $("closeSaleDetails").addEventListener("click",()=>show("saleDetails",false));
 $("printSaleInvoice").addEventListener("click",printSaleInvoice);
 $("cancelCustomerPayment").addEventListener("click",()=>show("customerPaymentEditor",false));
 $("customerPaymentForm").addEventListener("submit",saveCustomerPayment);
-$("showCashTab").addEventListener("click",()=>{if(!permission("cash.view")&&!permission("expenses.view"))return message("globalMessage","ليس لديك صلاحية عرض الخزنة أو المصروفات.");show("productsModule",false);show("purchasesModule",false);show("salesModule",false);show("cashModule",true);$("showProductsTab").classList.add("secondary");$("showPurchasesTab").classList.add("secondary");$("showSalesTab").classList.add("secondary");$("showCashTab").classList.remove("secondary");loadCashModule();});
+$("showCashTab").addEventListener("click",()=>{if(!permission("cash.view")&&!permission("expenses.view"))return message("globalMessage","ليس لديك صلاحية عرض الخزنة أو المصروفات.");show("reportsModule",false);show("productsModule",false);show("purchasesModule",false);show("salesModule",false);show("cashModule",true);$("showProductsTab").classList.add("secondary");$("showPurchasesTab").classList.add("secondary");$("showSalesTab").classList.add("secondary");$("showCashTab").classList.remove("secondary");loadCashModule();});
 $("refreshCash").addEventListener("click",loadCashModule);
 $("openDeposit").addEventListener("click",()=>openCashEditor("depositEditor","cash.deposit"));
 $("openWithdrawal").addEventListener("click",()=>openCashEditor("withdrawalEditor","cash.withdraw"));
@@ -214,12 +214,10 @@ async function loadReports(){
   add("movements",permission("inventory.view"),"stock_movements","id,product_id,movement_date,movement_type,quantity_delta,unit_cost,source_type,source_id,notes","movement_date");
   await Promise.all(jobs);
   const tasks=[];
-  if(permission("inventory.view"))tasks.push(client.from("product_stock_balances").select("product_id,code,name,unit,minimum_stock,quantity_on_hand,average_cost,stock_value,below_minimum").eq("business_id",activeBusinessId).then(({data,error})=>{if(error)throw error;reportData.stock=data||[];}));else reportData.stock=[];
-  if(permission("parties.view"))tasks.push(Promise.all([
-   client.from("parties").select("id,name,kind,phone,customer_type").eq("business_id",activeBusinessId).order("name"),
-   client.from("party_account_balances").select("party_id,kind,name,phone,opening_balance,sales_total,purchases_total,customer_payments,supplier_payments,returns_total,customer_net_balance,supplier_net_balance").eq("business_id",activeBusinessId),
-   fetchReportRows("party_account_statement","party_id,party_name,entry_type,reference_no,entry_date,debit,credit,description","entry_date",from,to)
-  ]).then(([p,b,s])=>{if(p.error)throw p.error;if(b.error)throw b.error;reportData.parties=p.data||[];reportData.partyBalances=b.data||[];reportData.statements=s;}));else{reportData.parties=[];reportData.partyBalances=[];reportData.statements=[];}
+  if(permission("inventory.view")&&permission("products.view"))tasks.push(client.from("product_stock_balances").select("product_id,code,name,unit,minimum_stock,quantity_on_hand,average_cost,stock_value,below_minimum").eq("business_id",activeBusinessId).then(({data,error})=>{if(error)throw error;reportData.stock=data||[];}));else reportData.stock=[];
+  if(permission("parties.view")){const {data,error}=await client.from("parties").select("id,name,kind,phone,customer_type").eq("business_id",activeBusinessId).order("name");if(error)throw error;reportData.parties=data||[];}else reportData.parties=[];
+  const canViewFullPartyLedger=permission("parties.view")&&permission("sales.view")&&permission("purchases.view")&&permission("payments.view");
+  if(canViewFullPartyLedger){const [b,sr]=await Promise.all([client.from("party_account_balances").select("party_id,kind,name,phone,opening_balance,sales_total,purchases_total,customer_payments,supplier_payments,returns_total,customer_net_balance,supplier_net_balance").eq("business_id",activeBusinessId),fetchReportRows("party_account_statement","party_id,party_name,entry_type,reference_no,entry_date,debit,credit,description","entry_date",from,to)]);if(b.error)throw b.error;reportData.partyBalances=b.data||[];reportData.statements=sr;}else{reportData.partyBalances=[];reportData.statements=[];}
   await Promise.all(tasks);
   reportData.salesItems=[];
   if(permission("sales.view")&&reportData.sales.length){
