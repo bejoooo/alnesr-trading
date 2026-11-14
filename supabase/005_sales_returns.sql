@@ -76,6 +76,7 @@ begin
   if v_cash_refund>0 and not public.has_business_permission(p_business_id,'cash.withdraw') then
     raise exception 'Not authorized to refund cash';
   end if;
+  if v_cash_refund>0 then perform pg_advisory_xact_lock(hashtextextended(p_business_id::text,0)); end if;
   if v_cash_refund>coalesce((select sum(case when direction='in' then amount else -amount end) from public.cash_transactions where business_id=p_business_id),0) then
     raise exception 'Insufficient cash balance for this customer refund';
   end if;
