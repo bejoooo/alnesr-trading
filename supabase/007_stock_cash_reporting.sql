@@ -187,7 +187,7 @@ begin
   if p_amount is null or p_amount<=0 or coalesce(trim(p_reason),'')='' then
     raise exception 'Positive amount and withdrawal reason are required';
   end if;
-  if coalesce((select balance from public.cash_balances where business_id=p_business_id),0)<p_amount then
+  if coalesce((select sum(case when direction='in' then amount else -amount end)\n              from public.cash_transactions where business_id=p_business_id),0)<p_amount then
     raise exception 'Cash withdrawal exceeds available cash balance';
   end if;
   insert into public.cash_transactions(
