@@ -134,6 +134,9 @@ begin
   end loop;
 
   if coalesce(p_paid_amount,0) > 0 then
+    if not public.has_business_permission(p_business_id,'cash.create') then
+      raise exception 'Not authorized to record the cash payment';
+    end if;
     insert into public.payments(business_id,party_id,invoice_id,direction,amount,payment_date,method,notes,created_by)
     values (p_business_id,p_supplier_id,v_invoice_id,'out',p_paid_amount,coalesce(p_invoice_date,current_date),'cash','دفعة عند إنشاء فاتورة مشتريات',auth.uid());
     insert into public.cash_transactions(business_id,transaction_date,direction,transaction_type,amount,party_id,invoice_id,reason,created_by)
@@ -242,6 +245,7 @@ begin
     end if;
 
     v_line_gross := round(v_qty*v_price,2);
+    if v_item_discount > v_line_gross then raise exception 'Line discount exceeds item total'; end if;
     if v_i = v_item_count then
       v_extra_discount := v_discount-v_discount_used;
     else
@@ -276,6 +280,9 @@ begin
   where id=v_invoice_id;
 
   if coalesce(p_paid_amount,0)>0 then
+    if not public.has_business_permission(p_business_id,'cash.create') then
+      raise exception 'Not authorized to record the cash receipt';
+    end if;
     insert into public.payments(business_id,party_id,invoice_id,direction,amount,payment_date,method,notes,created_by)
     values(p_business_id,p_customer_id,v_invoice_id,'in',p_paid_amount,coalesce(p_invoice_date,current_date),'cash','تحصيل عند إنشاء فاتورة مبيعات',auth.uid());
     insert into public.cash_transactions(business_id,transaction_date,direction,transaction_type,amount,party_id,invoice_id,reason,created_by)
