@@ -95,9 +95,9 @@ function renderProducts(){const q=$("productSearch").value.trim().toLowerCase(),
 function openProductForm(p=null){if(p&&!permission("products.edit"))return;if(!p&&!permission("products.create"))return;const f=$("productForm");f.reset();f.elements.id.value=p?.id||"";["name","code","category","unit","wholesale_price","retail_price","minimum_stock","warranty","warranty_provider","specs"].forEach(k=>f.elements[k].value=p?.[k]??({unit:"قطعة",wholesale_price:0,retail_price:0,minimum_stock:0}[k]??""));$("productImagePreview").src=p?.image_url||"";show("productImagePreview",!!p?.image_url);$("productFormTitle").textContent=p?"تعديل بيانات المنتج":"إضافة منتج للكتالوج";show("productEditor",true);$("productEditor").scrollIntoView({behavior:"smooth",block:"start"});}
 async function saveProduct(e){
  e.preventDefault();
- const requestedId=String(new FormData(e.currentTarget).get("id")||"");
- if(requestedId?!permission("products.edit"):!permission("products.create"))return message("globalMessage","ليس لديك صلاحية حفظ هذا المنتج.");
- const f=new FormData(e.currentTarget),id=String(f.get("id")||""),existing=products.find(x=>x.id===id),file=f.get("image_file");
+ const f=new FormData(e.currentTarget),id=String(f.get("id")||"");
+ if(id?!permission("products.edit"):!permission("products.create"))return message("globalMessage","ليس لديك صلاحية حفظ هذا المنتج.");
+ const existing=products.find(x=>x.id===id),file=f.get("image_file");
  const p={business_id:activeBusinessId,name:String(f.get("name")).trim(),code:String(f.get("code")||"").trim()||null,category:String(f.get("category")||"").trim()||null,unit:String(f.get("unit")||"قطعة").trim(),wholesale_price:Number(f.get("wholesale_price")||0),retail_price:Number(f.get("retail_price")||0),minimum_stock:Number(f.get("minimum_stock")||0),warranty:String(f.get("warranty")||"").trim()||null,warranty_provider:String(f.get("warranty_provider")||"").trim()||null,specs:String(f.get("specs")||"").trim()||null};
  if(Object.values(p).some(v=>typeof v==="number"&&(!Number.isFinite(v)||v<0)))return message("globalMessage","تأكد أن الأسعار وحد التنبيه أرقام صحيحة غير سالبة.");
  if(file&&file.size&&(!["image/jpeg","image/png","image/webp"].includes(file.type)||file.size>5*1024*1024))return message("globalMessage","الصورة يجب أن تكون JPG أو PNG أو WebP ولا يتجاوز حجمها 5 ميجابايت.");
