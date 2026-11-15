@@ -73,10 +73,8 @@ function renderMembership(){
  const visibility={showProductsTab:permission("products.view"),showCustomersTab:permission("parties.view"),showSuppliersTab:permission("parties.view"),showPurchasesTab:permission("purchases.view"),showSalesTab:permission("sales.view"),showReturnsTab:permission("sales.view"),showCashTab:permission("cash.view")||permission("expenses.view"),showReportsTab:canOpenReports(),showSettingsTab:permission("settings.view")};
  Object.entries(visibility).forEach(([id,visible])=>$(id).classList.toggle("hidden",!visible));
  const moduleAccess={productsModule:permission("products.view"),customersModule:permission("parties.view"),suppliersModule:permission("parties.view"),purchasesModule:permission("purchases.view"),salesModule:permission("sales.view"),returnsModule:permission("sales.view"),cashModule:permission("cash.view")||permission("expenses.view"),reportsModule:canOpenReports(),settingsModule:permission("settings.view")};
- Object.entries(moduleAccess).forEach(([id,visible])=>{if(!visible)show(id,false);});
- const moduleIds=Object.keys(moduleAccess),currentModule=moduleIds.find(id=>!$(id).classList.contains("hidden"));
- if(!currentModule){const firstAllowed=moduleIds.find(id=>moduleAccess[id]);if(firstAllowed)show(firstAllowed,true);}
- const activeModule=moduleIds.find(id=>!$(id).classList.contains("hidden"));
+ const moduleIds=Object.keys(moduleAccess);moduleIds.forEach(id=>show(id,false));
+ const activeModule=moduleIds.find(id=>moduleAccess[id]);if(activeModule)show(activeModule,true);
  const tabByModule={productsModule:"showProductsTab",customersModule:"showCustomersTab",suppliersModule:"showSuppliersTab",purchasesModule:"showPurchasesTab",salesModule:"showSalesTab",returnsModule:"showReturnsTab",cashModule:"showCashTab",reportsModule:"showReportsTab",settingsModule:"showSettingsTab"};
  Object.values(tabByModule).forEach(id=>$(id).classList.add("secondary"));
  if(activeModule&&tabByModule[activeModule])$(tabByModule[activeModule]).classList.remove("secondary");
