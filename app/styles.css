@@ -29,7 +29,7 @@
 .module-nav button{text-align:right;width:100%;padding:12px 13px;border-radius:9px;background:#e7edf1;color:#28404e;font-size:13px}
 .module-nav button:not(.secondary){background:var(--brand);color:#fff;box-shadow:0 3px 9px #142b3b22}
 .app-layout>section{grid-column:2;min-width:0}
-.logout-button{order:-1;min-width:120px;background:#f3e9e8!important;color:#8c3934!important;border:1px solid #ecd7d5}
+.logout-button{min-width:120px;background:#f3e9e8!important;color:#8c3934!important;border:1px solid #ecd7d5}
 #moduleShell{border-color:#dce5ea;box-shadow:0 8px 28px #142b3b0c}
 #workspace>.toolbar{padding:8px 4px 16px}
 #workspace>.toolbar h2{font-size:21px;color:var(--brand)}
