@@ -40,7 +40,7 @@ async function loadBusinessMembers(){
  const {data,error}=await client.rpc("list_business_members",{p_business_id:activeBusinessId});
  if(error){$("membersList").innerHTML='<p class="muted">تعذر تحميل الموظفين: '+esc(error.message)+'</p>';return fail(error);}
  $("membersList").innerHTML=(data||[]).map(m=>{
-  const locked=m.role==="owner";
+  const locked=m.role==="owner"||m.role==="admin";
   const checks=STAFF_PERMISSION_OPTIONS.map(([k,label])=>'<label class="staff-permission"><input type="checkbox" data-permission="'+k+'" '+(effectiveStaffPermission(m,k)?"checked":"")+' '+(locked?"disabled":"")+'><span>'+label+'</span></label>').join("");
   return '<div class="staff-card" data-member-card="'+m.user_id+'"><div class="staff-head"><div><strong>'+esc(m.email||"حساب بدون بريد")+'</strong><small>'+roleLabel(m.role)+(m.active?" · نشط":" · موقوف")+'</small></div><div class="staff-controls"><select data-member-role '+(locked?"disabled":"")+'><option value="manager" '+(m.role==="manager"?"selected":"")+'>مشرف</option><option value="cashier" '+(m.role==="cashier"?"selected":"")+'>كاشير</option><option value="viewer" '+(m.role==="viewer"?"selected":"")+'>مشاهدة فقط</option></select><label class="staff-active"><input type="checkbox" data-member-active '+(m.active?"checked":"")+' '+(locked?"disabled":"")+'> نشط</label></div></div><details><summary>تخصيص الصلاحيات</summary><div class="staff-permissions">'+checks+'</div></details><div class="actions"><button type="button" class="tiny" data-save-member '+(locked?"disabled":"")+'>حفظ التغييرات</button></div></div>';
  }).join("")||'<p class="muted">لا يوجد أعضاء مسجلون.</p>';
@@ -48,7 +48,7 @@ async function loadBusinessMembers(){
   const card=btn.closest("[data-member-card]"),userId=card.dataset.memberCard,role=card.querySelector("[data-member-role]").value,active=card.querySelector("[data-member-active]").checked,permissions={};
   card.querySelectorAll("[data-permission]").forEach(input=>permissions[input.dataset.permission]=input.checked);
   btn.disabled=true;message("globalMessage","جارٍ حفظ صلاحيات الموظف...");
-  const {error}=await client.from("business_members").update({role,active,permissions}).eq("business_id",activeBusinessId).eq("user_id",userId);
+  const {error}=await client.rpc("update_business_member",{p_business_id:activeBusinessId,p_user_id:userId,p_role:role,p_active:active,p_permissions:permissions});
   if(error){btn.disabled=false;return fail(error);}await loadBusinessMembers();message("globalMessage","تم حفظ صلاحيات الموظف.");
  }));
 }
@@ -111,7 +111,7 @@ async function saveProduct(e){
   p.image_path=uploadedPath;
  }else if(existing?.image_path)p.image_path=existing.image_path;
  if(!id)p.id=productId;
- const result=id?await client.from("products").update(p).eq("id",id).eq("business_id",activeBusinessId):await client.from("products").insert(p);
+ const updatePayload={...p};delete updatePayload.business_id;const result=id?await client.from("products").update(updatePayload).eq("id",id).eq("business_id",activeBusinessId):await client.from("products").insert(p);
  if(result.error){if(uploadedPath)await client.storage.from("product-images").remove([uploadedPath]);return fail(result.error);}
  if(uploadedPath&&existing?.image_path)await client.storage.from("product-images").remove([existing.image_path]);
  show("productEditor",false);message("globalMessage","تم حفظ بيانات المنتج والصورة دون تغيير كمية المخزون.");await loadProducts();
