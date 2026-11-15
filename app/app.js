@@ -70,14 +70,14 @@ function renderMembership(){
  $("welcome").textContent=b?.name||"النشاط";$("memberRole").textContent="دور الحساب: "+roleLabel(m.role)+" · العملة: EGP";
  const allowed=Object.entries(m.permissions||{}).filter(([,v])=>v===true).map(([k])=>k);
  $("permissionSummary").innerHTML="<p class='muted'>الصلاحيات الإضافية المسجلة:</p>"+(allowed.length?allowed.map(x=>'<span class="permission">'+esc(x)+'</span>').join(""):"<span class='muted'>تُطبّق الصلاحيات الافتراضية للدور من قاعدة البيانات.</span>");
- const visibility={showProductsTab:permission("products.view"),showPurchasesTab:permission("purchases.view"),showSalesTab:permission("sales.view"),showCashTab:permission("cash.view")||permission("expenses.view"),showReportsTab:canOpenReports(),showSettingsTab:permission("settings.view")};
+ const visibility={showProductsTab:permission("products.view"),showCustomersTab:permission("parties.view"),showSuppliersTab:permission("parties.view"),showPurchasesTab:permission("purchases.view"),showSalesTab:permission("sales.view"),showReturnsTab:permission("sales.view"),showCashTab:permission("cash.view")||permission("expenses.view"),showReportsTab:canOpenReports(),showSettingsTab:permission("settings.view")};
  Object.entries(visibility).forEach(([id,visible])=>$(id).classList.toggle("hidden",!visible));
- const moduleAccess={productsModule:permission("products.view"),purchasesModule:permission("purchases.view"),salesModule:permission("sales.view"),cashModule:permission("cash.view")||permission("expenses.view"),reportsModule:canOpenReports(),settingsModule:permission("settings.view")};
+ const moduleAccess={productsModule:permission("products.view"),customersModule:permission("parties.view"),suppliersModule:permission("parties.view"),purchasesModule:permission("purchases.view"),salesModule:permission("sales.view"),returnsModule:permission("sales.view"),cashModule:permission("cash.view")||permission("expenses.view"),reportsModule:canOpenReports(),settingsModule:permission("settings.view")};
  Object.entries(moduleAccess).forEach(([id,visible])=>{if(!visible)show(id,false);});
  const moduleIds=Object.keys(moduleAccess),currentModule=moduleIds.find(id=>!$(id).classList.contains("hidden"));
  if(!currentModule){const firstAllowed=moduleIds.find(id=>moduleAccess[id]);if(firstAllowed)show(firstAllowed,true);}
  const activeModule=moduleIds.find(id=>!$(id).classList.contains("hidden"));
- const tabByModule={productsModule:"showProductsTab",purchasesModule:"showPurchasesTab",salesModule:"showSalesTab",cashModule:"showCashTab",reportsModule:"showReportsTab",settingsModule:"showSettingsTab"};
+ const tabByModule={productsModule:"showProductsTab",customersModule:"showCustomersTab",suppliersModule:"showSuppliersTab",purchasesModule:"showPurchasesTab",salesModule:"showSalesTab",returnsModule:"showReturnsTab",cashModule:"showCashTab",reportsModule:"showReportsTab",settingsModule:"showSettingsTab"};
  Object.values(tabByModule).forEach(id=>$(id).classList.add("secondary"));
  if(activeModule&&tabByModule[activeModule])$(tabByModule[activeModule]).classList.remove("secondary");
  $("newProductBtn").classList.toggle("hidden",!permission("products.create"));
@@ -126,11 +126,17 @@ function money(v){return Number(v||0).toLocaleString("en-EG",{minimumFractionDig
 function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 applyReportPreset();client.auth.getSession().then(({data,error})=>{if(error)return fail(error);if(data.session)loadWorkspace();});client.auth.onAuthStateChange((event,session)=>{if(event==="SIGNED_IN"&&session)loadWorkspace();if(event==="SIGNED_OUT"){show("workspace",false);show("authPanel",true);}});
 
+const appModules=["productsModule","customersModule","suppliersModule","purchasesModule","salesModule","returnsModule","cashModule","reportsModule","settingsModule"];
+function activateModule(id,tab,loader){appModules.forEach(x=>show(x,x===id));document.querySelectorAll(".module-nav button").forEach(b=>b.classList.add("secondary"));$(tab).classList.remove("secondary");if(loader)loader();}
+async function loadCustomersModule(){if(!activeBusinessId||!permission("parties.view"))return;const {data,error}=await client.from("parties").select("id,name,company,phone,customer_type,kind").eq("business_id",activeBusinessId).in("kind",["customer","both"]).order("name");if(error)return fail(error);customers=data||[];await renderCustomers();if(permission("sales.view"))fillSaleCustomers();}
+async function loadSuppliersModule(){if(!activeBusinessId||!permission("parties.view"))return;const {data,error}=await client.from("parties").select("id,name,company,phone,kind").eq("business_id",activeBusinessId).in("kind",["supplier","both"]).order("name");if(error)return fail(error);suppliers=data||[];renderSuppliers();}
 const canPurchases=()=>permission("purchases.view");
 let suppliers=[],purchaseInvoices=[],purchaseLineCount=0;
-$("showSettingsTab").addEventListener("click",()=>{if(!permission("settings.view"))return message("globalMessage","ليس لديك صلاحية عرض الإعدادات.");["productsModule","purchasesModule","salesModule","cashModule","reportsModule"].forEach(id=>show(id,false));show("settingsModule",true);document.querySelectorAll(".module-nav button").forEach(b=>b.classList.add("secondary"));$("showSettingsTab").classList.remove("secondary");loadSettingsModule();});
-$("showProductsTab").addEventListener("click",()=>{if(!permission("products.view"))return message("globalMessage","ليس لديك صلاحية عرض المنتجات.");show("reportsModule",false);show("settingsModule",false);show("cashModule",false);show("purchasesModule",false);show("salesModule",false);show("productsModule",true);$("showCashTab").classList.add("secondary");$("showProductsTab").classList.remove("secondary");$("showPurchasesTab").classList.add("secondary");});
-$("showPurchasesTab").addEventListener("click",()=>{if(!canPurchases())return message("globalMessage","ليس لديك صلاحية عرض المشتريات.");show("reportsModule",false);show("settingsModule",false);show("productsModule",false);show("salesModule",false);show("cashModule",false);show("purchasesModule",true);$("showCashTab").classList.add("secondary");$("showProductsTab").classList.add("secondary");$("showPurchasesTab").classList.remove("secondary");loadPurchasesModule();});
+$("showSettingsTab").addEventListener("click",()=>{if(!permission("settings.view"))return message("globalMessage","ليس لديك صلاحية عرض الإعدادات.");activateModule("settingsModule","showSettingsTab",loadSettingsModule);});
+$("showProductsTab").addEventListener("click",()=>{if(!permission("products.view"))return message("globalMessage","ليس لديك صلاحية عرض المنتجات.");activateModule("productsModule","showProductsTab",loadProducts);});
+$("showCustomersTab").addEventListener("click",()=>{if(!permission("parties.view"))return message("globalMessage","ليس لديك صلاحية عرض العملاء.");activateModule("customersModule","showCustomersTab",loadCustomersModule);});
+$("showSuppliersTab").addEventListener("click",()=>{if(!permission("parties.view"))return message("globalMessage","ليس لديك صلاحية عرض الموردين.");activateModule("suppliersModule","showSuppliersTab",loadSuppliersModule);});
+$("showPurchasesTab").addEventListener("click",()=>{if(!canPurchases())return message("globalMessage","ليس لديك صلاحية عرض المشتريات.");activateModule("purchasesModule","showPurchasesTab",loadPurchasesModule);});
 $("newSupplierBtn").addEventListener("click",()=>{if(!permission("parties.create"))return message("globalMessage","ليس لديك صلاحية إضافة مورد.");show("supplierEditor",true);});
 $("cancelSupplier").addEventListener("click",()=>show("supplierEditor",false));
 $("supplierForm").addEventListener("submit",saveSupplier);
@@ -166,7 +172,8 @@ async function saveSupplierPayment(e){e.preventDefault();if(!permission("payment
 
 
 let customers=[],salesInvoices=[],saleLineCount=0,currentSalePrint=null;
-$("showSalesTab").addEventListener("click",()=>{if(!permission("sales.view"))return message("globalMessage","ليس لديك صلاحية عرض المبيعات.");show("reportsModule",false);show("settingsModule",false);show("productsModule",false);show("purchasesModule",false);show("cashModule",false);show("salesModule",true);$("showCashTab").classList.add("secondary");$("showProductsTab").classList.add("secondary");$("showPurchasesTab").classList.add("secondary");$("showSalesTab").classList.remove("secondary");loadSalesModule();});
+$("showSalesTab").addEventListener("click",()=>{if(!permission("sales.view"))return message("globalMessage","ليس لديك صلاحية عرض المبيعات.");activateModule("salesModule","showSalesTab",loadSalesModule);});
+$("showReturnsTab").addEventListener("click",()=>{if(!permission("sales.view"))return message("globalMessage","ليس لديك صلاحية عرض المرتجعات.");activateModule("returnsModule","showReturnsTab",loadSalesModule);});
 const oldProductsTab=$("showProductsTab");
 oldProductsTab.addEventListener("click",()=>{$("showSalesTab").classList.add("secondary");});
 $("showPurchasesTab").addEventListener("click",()=>{$("showSalesTab").classList.add("secondary");});
@@ -186,7 +193,7 @@ $("closeSaleDetails").addEventListener("click",()=>show("saleDetails",false));
 $("printSaleInvoice").addEventListener("click",printSaleInvoice);
 $("cancelCustomerPayment").addEventListener("click",()=>show("customerPaymentEditor",false));
 $("customerPaymentForm").addEventListener("submit",saveCustomerPayment);
-$("showCashTab").addEventListener("click",()=>{if(!permission("cash.view")&&!permission("expenses.view"))return message("globalMessage","ليس لديك صلاحية عرض الخزنة أو المصروفات.");show("reportsModule",false);show("settingsModule",false);show("productsModule",false);show("purchasesModule",false);show("salesModule",false);show("cashModule",true);$("showProductsTab").classList.add("secondary");$("showPurchasesTab").classList.add("secondary");$("showSalesTab").classList.add("secondary");$("showCashTab").classList.remove("secondary");loadCashModule();});
+$("showCashTab").addEventListener("click",()=>{if(!permission("cash.view")&&!permission("expenses.view"))return message("globalMessage","ليس لديك صلاحية عرض الخزنة أو المصروفات.");activateModule("cashModule","showCashTab",loadCashModule);});
 $("refreshCash").addEventListener("click",loadCashModule);
 $("openDeposit").addEventListener("click",()=>openCashEditor("depositEditor","cash.deposit"));
 $("openWithdrawal").addEventListener("click",()=>openCashEditor("withdrawalEditor","cash.withdraw"));
@@ -257,14 +264,7 @@ async function savePartyOpeningBalance(e){e.preventDefault();if(!permission("par
 // ===== Reports & Excel export =====
 const reportData={};
 const canOpenReports=()=>permission("sales.view")||permission("purchases.view")||permission("payments.view")||permission("expenses.view")||permission("cash.view")||permission("inventory.view")||permission("parties.view");
-$("showReportsTab").addEventListener("click",async()=>{
- if(!canOpenReports())return message("globalMessage","ليس لديك صلاحية عرض التقارير.");
- ["productsModule","purchasesModule","salesModule","cashModule","settingsModule"].forEach(id=>show(id,false));
- show("reportsModule",true);
- ["showProductsTab","showPurchasesTab","showSalesTab","showCashTab","showSettingsTab"].forEach(id=>$(id).classList.add("secondary"));
- $("showReportsTab").classList.remove("secondary");
- await loadReports();
-});
+$("showReportsTab").addEventListener("click",()=>{if(!canOpenReports())return message("globalMessage","ليس لديك صلاحية عرض التقارير.");activateModule("reportsModule","showReportsTab",loadReports);});
 $("reportPreset").addEventListener("change",applyReportPreset);
 $("runReports").addEventListener("click",loadReports);
 $("exportReports").addEventListener("click",exportReportsExcel);$("createBackup").addEventListener("click",exportBusinessBackup);$("restoreBackup").addEventListener("click",restoreBusinessBackup);
