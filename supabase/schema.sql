@@ -284,7 +284,7 @@ drop policy if exists businesses_admin_update on public.businesses;
 create policy businesses_admin_update on public.businesses for update using (public.has_business_role(id, array['owner','admin'])) with check (public.has_business_role(id, array['owner','admin']));
 
 drop policy if exists members_read on public.business_members;
-create policy members_read on public.business_members for select using (public.is_business_member(business_id));
+create policy members_read on public.business_members for select to authenticated using (user_id = auth.uid());
 drop policy if exists members_admin_manage on public.business_members;
 create policy members_admin_manage on public.business_members for all using (public.has_business_role(business_id, array['owner','admin'])) with check (public.has_business_role(business_id, array['owner','admin']));
 
