@@ -44,25 +44,26 @@ to authenticated
 with check (created_by = (select auth.uid()));
 
 do $$
+declare
+  self_read_qual text;
 begin
-  if not exists (
-    select 1 from pg_policies
-    where schemaname='public' and tablename='business_members'
-      and policyname='members_read' and cmd='SELECT'
-      and qual like '%( SELECT auth.uid() AS uid)%'
-  ) then
-    -- PostgreSQL may normalize the expression differently; verify policy presence
-    -- and command here, while the exact expression is visible in pg_get_expr.
-    if not exists (
-      select 1 from pg_policies
-      where schemaname='public' and tablename='business_members'
-        and policyname='members_read' and cmd='SELECT'
-    ) then raise exception 'Membership self-read policy missing'; end if;
+  select qual into self_read_qual
+  from pg_policies
+  where schemaname='public' and tablename='business_members'
+    and policyname='members_read' and cmd='SELECT';
+
+  if self_read_qual is null
+     or position('user_id' in self_read_qual)=0
+     or position('auth.uid' in self_read_qual)=0 then
+    raise exception 'Membership self-read policy is missing or malformed';
   end if;
+
   if exists (
     select 1 from pg_policies
     where schemaname='public' and tablename='business_members'
       and policyname='members_admin_manage'
-  ) then raise exception 'Legacy permissive membership policy still exists'; end if;
+  ) then
+    raise exception 'Legacy permissive membership policy still exists';
+  end if;
 end;
 $$;
