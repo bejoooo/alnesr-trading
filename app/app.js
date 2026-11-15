@@ -320,11 +320,16 @@ function renderReports(from,to){
   ["المصروفات خلال الفترة",expense],["قيمة المرتجعات خلال الفترة",returns],
   ["المتبقي الحالي لفواتير المبيعات بالفترة",currentSalesDue],["المتبقي الحالي لفواتير المشتريات بالفترة",currentPurchaseDue]
  ];
- $("reportStats").innerHTML=cards.filter((x,i)=>i<2?permission(i===0?"sales.view":"purchases.view"):i<4?permission("payments.view"):i===4?permission("expenses.view"):i===5?permission("sales.view"):i<8?(i===6?permission("sales.view"):permission("purchases.view")):false).map(x=>'<div class="stat"><strong>'+reportMoney(x[1])+'</strong><span>'+esc(x[0])+'</span></div>').join("");
+ $("reportStats").innerHTML=cards.filter((x,i)=>i<2?permission(i===0?"sales.view":"purchases.view"):i===2?permission("payments.view")&&permission("sales.view"):i===3?permission("payments.view")&&permission("purchases.view"):i===4?permission("expenses.view"):i===5?permission("sales.view"):i<8?(i===6?permission("sales.view"):permission("purchases.view")):false).map(x=>'<div class="stat"><strong>'+reportMoney(x[1])+'</strong><span>'+esc(x[0])+'</span></div>').join("");
  const parts=[];
  if(permission("sales.view"))parts.push('<div class="subpanel"><h4>المبيعات</h4><p>عدد الفواتير: '+d.sales.length+' · الإجمالي: '+reportMoney(sales)+' · المتبقي الحالي: '+reportMoney(currentSalesDue)+'</p><p class="muted">المتبقي الحالي هو due_total الحالي للفواتير التي تاريخها داخل الفترة، وليس رصيدًا تاريخيًا كما كان في نهاية الفترة.</p></div>');
  if(permission("purchases.view"))parts.push('<div class="subpanel"><h4>المشتريات</h4><p>عدد الفواتير: '+d.purchases.length+' · الإجمالي: '+reportMoney(purchases)+' · المتبقي الحالي: '+reportMoney(currentPurchaseDue)+'</p><p class="muted">المتبقي الحالي للفواتير المختارة، وليس رصيدًا تاريخيًا كما كان في نهاية الفترة.</p></div>');
- if(permission("payments.view"))parts.push('<div class="subpanel"><h4>التحصيلات والمدفوعات</h4><p>مقبوضات مسجلة: '+reportMoney(salesPaid)+' · مدفوعات مسجلة: '+reportMoney(purchasePaid)+' · عدد الدفعات: '+d.payments.length+'</p><p class="muted">مجمّعة حسب تاريخ الدفع الفعلي، وليس تاريخ الفاتورة.</p></div>');
+ if(permission("payments.view")){
+  const paymentLabels=[];
+  if(permission("sales.view"))paymentLabels.push("مقبوضات العملاء: "+reportMoney(salesPaid));
+  if(permission("purchases.view"))paymentLabels.push("مدفوعات الموردين: "+reportMoney(purchasePaid));
+  parts.push('<div class="subpanel"><h4>التحصيلات والمدفوعات</h4><p>'+paymentLabels.join(" · ")+' · عدد الدفعات: '+d.payments.length+'</p><p class="muted">مجمّعة حسب تاريخ الدفع الفعلي، وليس تاريخ الفاتورة.</p></div>');
+ }
  if(permission("expenses.view"))parts.push('<div class="subpanel"><h4>المصروفات</h4><p>عدد العمليات: '+d.expenses.length+' · الإجمالي: '+reportMoney(expense)+'</p></div>');
  if(permission("cash.view"))parts.push('<div class="subpanel"><h4>حركة الخزنة</h4><p>داخل: '+reportMoney(reportSum(d.cash.filter(x=>x.direction==="in"),"amount"))+' · خارج: '+reportMoney(reportSum(d.cash.filter(x=>x.direction==="out"),"amount"))+' · عدد الحركات: '+d.cash.length+'</p></div>');
  if(permission("sales.view"))parts.push('<div class="subpanel"><h4>المرتجعات</h4><p>عدد المرتجعات: '+d.returns.length+' · قيمة الردود: '+reportMoney(returns)+'</p></div>');
