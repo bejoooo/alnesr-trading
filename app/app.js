@@ -1,6 +1,7 @@
 (() => {
 const APP_VERSION="1.1.0";
 const $=id=>document.getElementById(id),url=window.ALNESR_SUPABASE_URL||"",anon=window.ALNESR_SUPABASE_ANON_KEY||"";
+$("appVersion").textContent=APP_VERSION;
 const configured=url.startsWith("https://")&&!url.includes("YOUR-PROJECT")&&anon.length>30&&!anon.includes("YOUR_");
 let client=null,memberships=[],activeBusinessId=null,products=[],balances={};
 const message=(id,v)=>{$(id).textContent=v||""},show=(id,v)=>$(id).classList.toggle("hidden",!v);
