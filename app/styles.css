@@ -20,3 +20,8 @@
 .staff-card details{margin:12px 0}.staff-card summary{cursor:pointer;font-weight:bold;color:var(--brand)}
 .staff-permissions{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;margin-top:12px}
 .staff-permission{display:flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:8px;padding:8px;background:#f8fafb}
+
+
+/* Keep logout away from the main work controls and require deliberate confirmation. */
+#logout{position:fixed;top:76px;left:14px;z-index:1000;padding:8px 12px;border:1px solid #d5dfe5;box-shadow:0 3px 12px #102b3b18;font-size:12px}
+@media(max-width:650px){#logout{top:70px;left:8px;padding:7px 10px;font-size:11px}}
