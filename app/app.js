@@ -255,9 +255,9 @@ const reportData={};
 const canOpenReports=()=>permission("sales.view")||permission("purchases.view")||permission("payments.view")||permission("expenses.view")||permission("cash.view")||permission("inventory.view")||permission("parties.view");
 $("showReportsTab").addEventListener("click",async()=>{
  if(!canOpenReports())return message("globalMessage","ليس لديك صلاحية عرض التقارير.");
- ["productsModule","purchasesModule","salesModule","cashModule"].forEach(id=>show(id,false));
+ ["productsModule","purchasesModule","salesModule","cashModule","settingsModule"].forEach(id=>show(id,false));
  show("reportsModule",true);
- ["showProductsTab","showPurchasesTab","showSalesTab","showCashTab"].forEach(id=>$(id).classList.add("secondary"));
+ ["showProductsTab","showPurchasesTab","showSalesTab","showCashTab","showSettingsTab"].forEach(id=>$(id).classList.add("secondary"));
  $("showReportsTab").classList.remove("secondary");
  await loadReports();
 });
