@@ -290,6 +290,13 @@ async function fetchReportRows(table,fields,dateField,from,to,extra){
  return rows;
 }
 function reportSum(rows,key){return rows.reduce((sum,x)=>sum+Number(x[key]||0),0);}
+function visibleReportPayments(){
+ const salesIds=reportData.salesPaymentInvoiceIds||new Set(),purchaseIds=reportData.purchasePaymentInvoiceIds||new Set();
+ return (reportData.payments||[]).filter(x=>
+  (permission("sales.view")&&salesIds.has(x.invoice_id))||
+  (permission("purchases.view")&&purchaseIds.has(x.invoice_id))
+ );
+}
 function reportMoney(v){return Number(v||0).toLocaleString("en-EG",{minimumFractionDigits:2,maximumFractionDigits:2})+" ج.م";}
 function setReportStat(id,value,label){$(id).innerHTML='<div class="stat"><strong>'+esc(value)+'</strong><span>'+esc(label)+'</span></div>';}
 async function loadReports(){
@@ -376,7 +383,7 @@ function renderReports(from,to){
   const paymentLabels=[];
   if(permission("sales.view"))paymentLabels.push("مقبوضات العملاء: "+reportMoney(salesPaid));
   if(permission("purchases.view"))paymentLabels.push("مدفوعات الموردين: "+reportMoney(purchasePaid));
-  parts.push('<div class="subpanel"><h4>التحصيلات والمدفوعات</h4><p>'+paymentLabels.join(" · ")+' · عدد الدفعات: '+d.payments.length+'</p><p class="muted">مجمّعة حسب تاريخ الدفع الفعلي، وليس تاريخ الفاتورة.</p></div>');
+  parts.push('<div class="subpanel"><h4>التحصيلات والمدفوعات</h4><p>'+paymentLabels.join(" · ")+' · عدد الدفعات الظاهرة حسب صلاحياتك: '+visibleReportPayments().length+'</p><p class="muted">مجمّعة حسب تاريخ الدفع الفعلي، وليس تاريخ الفاتورة.</p></div>');
  }
  if(permission("expenses.view"))parts.push('<div class="subpanel"><h4>المصروفات</h4><p>عدد العمليات: '+d.expenses.length+' · الإجمالي: '+reportMoney(expense)+'</p></div>');
  if(permission("cash.view"))parts.push('<div class="subpanel"><h4>حركة الخزنة</h4><p>داخل: '+reportMoney(reportSum(d.cash.filter(x=>x.direction==="in"),"amount"))+' · خارج: '+reportMoney(reportSum(d.cash.filter(x=>x.direction==="out"),"amount"))+' · عدد الحركات: '+d.cash.length+'</p></div>');
@@ -401,7 +408,7 @@ function exportReportsExcel(){
   add("فواتير_المشتريات",map(d.purchases,x=>({رقم_الفاتورة:x.invoice_no,التاريخ:x.invoice_date,المورد:x.supplier_name_snapshot,الإجمالي:x.total,المدفوع_وقت_الفاتورة:x.paid_total,المتبقي_الحالي:x.due_total,الحالة:x.status})));
   add("بنود_المشتريات",map(d.purchaseItems,x=>({رقم_الفاتورة:(d.purchases.find(i=>i.id===x.invoice_id)||{}).invoice_no,المنتج:x.product_name_snapshot,الكمية:x.quantity,سعر_الوحدة:x.unit_price,الخصم_الموزع:x.allocated_discount,صافي_البند:x.net_line_total,تكلفة_الوحدة_النهائية:x.unit_landed_cost})));
  }
- if(permission("payments.view"))add("الدفعات",map(d.payments,x=>({التاريخ:x.payment_date,الاتجاه:x.direction==="in"?"مقبوض":"مدفوع",المبلغ:x.amount,الطريقة:x.method,المرجع:x.reference,ملاحظات:x.notes,معرف_الفاتورة:x.invoice_id,معرف_الحساب:x.party_id})));
+ if(permission("payments.view"))add("الدفعات",map(visibleReportPayments(),x=>({التاريخ:x.payment_date,الاتجاه:x.direction==="in"?"مقبوض":"مدفوع",المبلغ:x.amount,الطريقة:x.method,المرجع:x.reference,ملاحظات:x.notes,معرف_الفاتورة:x.invoice_id,معرف_الحساب:x.party_id})));
  if(permission("cash.view"))add("حركات_الخزنة",map(d.cash,x=>({التاريخ:x.transaction_date,الاتجاه:x.direction==="in"?"داخل":"خارج",النوع:x.transaction_type,المبلغ:x.amount,السبب:x.reason,ملاحظات:x.notes})));
  if(permission("expenses.view"))add("المصروفات",map(d.expenses,x=>({التاريخ:x.expense_date,المصروف:x.name,المبلغ:x.amount,ملاحظات:x.notes})));
  if(permission("inventory.view")){
