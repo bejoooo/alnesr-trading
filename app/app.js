@@ -253,6 +253,17 @@ async function loadReports(){
   add("returns",permission("sales.view"),"sales_returns","id,return_no,sales_invoice_id,customer_id,return_date,refund_total,notes","return_date");
   add("movements",permission("inventory.view"),"stock_movements","id,product_id,movement_date,movement_type,quantity_delta,unit_cost,source_type,source_id,notes","movement_date");
   await Promise.all(jobs);
+  const paymentInvoiceIds=[...new Set(reportData.payments.map(x=>x.invoice_id).filter(Boolean))];
+  reportData.salesPaymentInvoiceIds=new Set();reportData.purchasePaymentInvoiceIds=new Set();
+  if(paymentInvoiceIds.length){
+   const [si,pi]=await Promise.all([
+    client.from("sales_invoices").select("id").eq("business_id",activeBusinessId).in("id",paymentInvoiceIds),
+    client.from("purchase_invoices").select("id").eq("business_id",activeBusinessId).in("id",paymentInvoiceIds)
+   ]);
+   if(si.error)throw si.error;if(pi.error)throw pi.error;
+   reportData.salesPaymentInvoiceIds=new Set((si.data||[]).map(x=>x.id));
+   reportData.purchasePaymentInvoiceIds=new Set((pi.data||[]).map(x=>x.id));
+  }
   const tasks=[];
   if(permission("inventory.view")&&permission("products.view"))tasks.push(client.from("product_stock_balances").select("product_id,code,name,unit,minimum_stock,quantity_on_hand,average_cost,stock_value,below_minimum").eq("business_id",activeBusinessId).then(({data,error})=>{if(error)throw error;reportData.stock=data||[];}));else reportData.stock=[];
   if(permission("parties.view")){const {data,error}=await client.from("parties").select("id,name,kind,phone,customer_type").eq("business_id",activeBusinessId).order("name");if(error)throw error;reportData.parties=data||[];}else reportData.parties=[];
@@ -289,7 +300,7 @@ async function loadReports(){
 }
 function renderReports(from,to){
  const d=reportData,sales=reportSum(d.sales,"total"),purchases=reportSum(d.purchases,"total");
- const salesInvoiceIds=new Set(d.sales.map(x=>x.id)),purchaseInvoiceIds=new Set(d.purchases.map(x=>x.id));
+ const salesInvoiceIds=reportData.salesPaymentInvoiceIds||new Set(),purchaseInvoiceIds=reportData.purchasePaymentInvoiceIds||new Set();
  const salesPaid=reportSum(d.payments.filter(x=>x.direction==="in"&&salesInvoiceIds.has(x.invoice_id)),"amount");
  const purchasePaid=reportSum(d.payments.filter(x=>x.direction==="out"&&purchaseInvoiceIds.has(x.invoice_id)),"amount");
  const expense=reportSum(d.expenses,"amount"),returns=reportSum(d.returns,"refund_total");
