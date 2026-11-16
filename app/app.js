@@ -129,11 +129,11 @@ function activateModule(id,tab,loader){appModules.forEach(x=>show(x,x===id));doc
 async function loadDashboardModule(){
  if(!activeBusinessId)return;
  const pending="جارٍ التحميل...",denied="غير متاح بالصلاحيات";
- const cards={cash:permission("cash.view")?pending:denied,products:permission("products.view")?pending:denied,stock:permission("inventory.view")?pending:denied,sales:permission("sales.view")?pending:denied};
+ const cards={cash:permission("cash.view")?pending:denied,products:permission("products.view")?pending:denied,purchases:permission("purchases.view")?pending:denied,sales:permission("sales.view")?pending:denied};
  const jobs=[];let chartRows=[];
  if(permission("cash.view"))jobs.push(client.from("cash_balances").select("balance").eq("business_id",activeBusinessId).maybeSingle().then(({data,error})=>{if(error)throw error;cards.cash=money(data?.balance||0);}));
  if(permission("products.view"))jobs.push(client.from("products").select("id",{count:"exact",head:true}).eq("business_id",activeBusinessId).eq("is_active",true).then(({count,error})=>{if(error)throw error;cards.products=Number(count||0).toLocaleString("en-EG");}));
- if(permission("inventory.view"))jobs.push(fetchReportRows("product_stock_balances","quantity_on_hand",null,null,null).then(rows=>{const qty=rows.reduce((sum,x)=>sum+Number(x.quantity_on_hand||0),0);cards.stock=qty.toLocaleString("en-EG");}));
+ if(permission("purchases.view")){const now=new Date(),from=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0")+"-01";jobs.push(fetchReportRows("purchase_invoices","total","invoice_date",from,today(),q=>q.neq("status","void")).then(rows=>{cards.purchases=money(rows.reduce((sum,x)=>sum+Number(x.total||0),0));}));}
  if(permission("sales.view")){
   const now=new Date(),from=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0")+"-01";
   jobs.push(fetchReportRows("sales_invoices","total","invoice_date",from,today(),q=>q.neq("status","void")).then(rows=>{cards.sales=money(rows.reduce((sum,x)=>sum+Number(x.total||0),0));}));
@@ -142,7 +142,7 @@ async function loadDashboardModule(){
   jobs.push(fetchReportRows("sales_invoices","total,invoice_date","invoice_date",from30,today(),q=>q.neq("status","void")).then(rows=>{chartRows=rows;}));
  }
  try{await Promise.all(jobs);}catch(error){fail(error);Object.keys(cards).forEach(key=>{if(cards[key]===pending)cards[key]="تعذر التحميل";});}
- $("dashboardStats").innerHTML=[["sales","مبيعات الشهر الحالي"],["products","عدد المنتجات"],["stock","إجمالي الكميات بالمخزون"],["cash","رصيد الخزنة"]].map(([key,label])=>'<div class="stat"><strong>'+esc(cards[key])+'</strong><span>'+esc(label)+'</span></div>').join("");
+ $("dashboardStats").innerHTML=[["sales","مبيعات الشهر الحالي"],["purchases","مشتريات الشهر الحالي"],["products","عدد المنتجات"],["cash","رصيد الخزنة"]].map(([key,label])=>'<div class="stat"><strong>'+esc(cards[key])+'</strong><span>'+esc(label)+'</span></div>').join("");
  const chart=$("dashboardChartBars"),empty=$("dashboardChartEmpty");
  if(!permission("sales.view")){empty.textContent="لا تتوفر صلاحية عرض بيانات المبيعات.";show("dashboardChartEmpty",true);show("dashboardChartBars",false);}
  else if(!chartRows.length){empty.textContent="لا توجد فواتير مبيعات خلال آخر 30 يوم.";show("dashboardChartEmpty",true);show("dashboardChartBars",false);}
