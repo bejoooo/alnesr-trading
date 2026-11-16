@@ -1,5 +1,5 @@
 (() => {
-const APP_VERSION="1.1.0";
+const APP_VERSION="1.2.0";
 const $=id=>document.getElementById(id),url=window.ALNESR_SUPABASE_URL||"",anon=window.ALNESR_SUPABASE_ANON_KEY||"";
 $("appVersion").textContent=APP_VERSION;
 const configured=url.startsWith("https://")&&!url.includes("YOUR-PROJECT")&&anon.length>30&&!anon.includes("YOUR_");
@@ -126,7 +126,34 @@ applyReportPreset();client.auth.getSession().then(({data,error})=>{if(error)retu
 
 const appModules=["dashboardModule","productsModule","customersModule","suppliersModule","purchasesModule","salesModule","returnsModule","cashModule","reportsModule","settingsModule"];
 function activateModule(id,tab,loader){appModules.forEach(x=>show(x,x===id));document.querySelectorAll(".module-nav button").forEach(b=>b.classList.add("secondary"));$(tab).classList.remove("secondary");if(loader)loader();}
-async function loadDashboardModule(){if(!activeBusinessId)return;const pending="جارٍ التحميل...",denied="غير متاح بالصلاحيات";const cards={cash:permission("cash.view")?pending:denied,products:permission("products.view")?pending:denied,stock:permission("inventory.view")?pending:denied,sales:permission("sales.view")?pending:denied};const jobs=[];if(permission("cash.view"))jobs.push(client.from("cash_balances").select("balance").eq("business_id",activeBusinessId).maybeSingle().then(({data,error})=>{if(error)throw error;cards.cash=money(data?.balance||0);}));if(permission("products.view"))jobs.push(client.from("products").select("id",{count:"exact",head:true}).eq("business_id",activeBusinessId).eq("is_active",true).then(({count,error})=>{if(error)throw error;cards.products=Number(count||0).toLocaleString("en-EG");}));if(permission("inventory.view"))jobs.push(fetchReportRows("product_stock_balances","quantity_on_hand",null,null,null).then(rows=>{const qty=rows.reduce((sum,x)=>sum+Number(x.quantity_on_hand||0),0);cards.stock=qty.toLocaleString("en-EG");}));if(permission("sales.view")){const now=new Date(),from=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0")+"-01";jobs.push(fetchReportRows("sales_invoices","total","invoice_date",from,today(),q=>q.neq("status","void")).then(rows=>{cards.sales=money(rows.reduce((sum,x)=>sum+Number(x.total||0),0));}));}try{await Promise.all(jobs);}catch(error){fail(error);Object.keys(cards).forEach(key=>{if(cards[key]===pending)cards[key]="تعذر التحميل";});}$("dashboardStats").innerHTML=[["cash","رصيد الخزنة"],["products","عدد المنتجات"],["stock","إجمالي الكميات بالمخزون"],["sales","مبيعات الشهر الحالي"]].map(([key,label])=>'<div class="stat"><strong>'+esc(cards[key])+'</strong><span>'+esc(label)+'</span></div>').join("");}
+async function loadDashboardModule(){
+ if(!activeBusinessId)return;
+ const pending="جارٍ التحميل...",denied="غير متاح بالصلاحيات";
+ const cards={cash:permission("cash.view")?pending:denied,products:permission("products.view")?pending:denied,stock:permission("inventory.view")?pending:denied,sales:permission("sales.view")?pending:denied};
+ const jobs=[];let chartRows=[];
+ if(permission("cash.view"))jobs.push(client.from("cash_balances").select("balance").eq("business_id",activeBusinessId).maybeSingle().then(({data,error})=>{if(error)throw error;cards.cash=money(data?.balance||0);}));
+ if(permission("products.view"))jobs.push(client.from("products").select("id",{count:"exact",head:true}).eq("business_id",activeBusinessId).eq("is_active",true).then(({count,error})=>{if(error)throw error;cards.products=Number(count||0).toLocaleString("en-EG");}));
+ if(permission("inventory.view"))jobs.push(fetchReportRows("product_stock_balances","quantity_on_hand",null,null,null).then(rows=>{const qty=rows.reduce((sum,x)=>sum+Number(x.quantity_on_hand||0),0);cards.stock=qty.toLocaleString("en-EG");}));
+ if(permission("sales.view")){
+  const now=new Date(),from=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0")+"-01";
+  jobs.push(fetchReportRows("sales_invoices","total","invoice_date",from,today(),q=>q.neq("status","void")).then(rows=>{cards.sales=money(rows.reduce((sum,x)=>sum+Number(x.total||0),0));}));
+  const startDate=new Date(now.getFullYear(),now.getMonth(),now.getDate()-29);
+  const from30=startDate.getFullYear()+"-"+String(startDate.getMonth()+1).padStart(2,"0")+"-"+String(startDate.getDate()).padStart(2,"0");
+  jobs.push(fetchReportRows("sales_invoices","total,invoice_date","invoice_date",from30,today(),q=>q.neq("status","void")).then(rows=>{chartRows=rows;}));
+ }
+ try{await Promise.all(jobs);}catch(error){fail(error);Object.keys(cards).forEach(key=>{if(cards[key]===pending)cards[key]="تعذر التحميل";});}
+ $("dashboardStats").innerHTML=[["sales","مبيعات الشهر الحالي"],["products","عدد المنتجات"],["stock","إجمالي الكميات بالمخزون"],["cash","رصيد الخزنة"]].map(([key,label])=>'<div class="stat"><strong>'+esc(cards[key])+'</strong><span>'+esc(label)+'</span></div>').join("");
+ const chart=$("dashboardChartBars"),empty=$("dashboardChartEmpty");
+ if(!permission("sales.view")){empty.textContent="لا تتوفر صلاحية عرض بيانات المبيعات.";show("dashboardChartEmpty",true);show("dashboardChartBars",false);}
+ else if(!chartRows.length){empty.textContent="لا توجد فواتير مبيعات خلال آخر 30 يوم.";show("dashboardChartEmpty",true);show("dashboardChartBars",false);}
+ else{
+  const totals=Array(6).fill(0),base=new Date();base.setHours(0,0,0,0);base.setDate(base.getDate()-29);
+  chartRows.forEach(row=>{const p=String(row.invoice_date).split("-").map(Number),d=new Date(p[0],p[1]-1,p[2]);d.setHours(0,0,0,0);const index=Math.max(0,Math.min(5,Math.floor((d-base)/86400000/5)));totals[index]+=Number(row.total||0);});
+  const max=Math.max(...totals,1);
+  chart.innerHTML=totals.map((value,i)=>{const day=new Date(base);day.setDate(base.getDate()+i*5);const label=day.toLocaleDateString("ar-EG",{day:"numeric",month:"short"});return '<div class="chart-bar-column"><span class="chart-bar-value">'+esc(money(value))+'</span><div class="chart-bar-track"><span class="chart-bar-fill" style="height:'+Math.max(value?4:0,value/max*100)+'%"></span></div><span class="chart-bar-label">'+esc(label)+'</span></div>';}).join("");
+  show("dashboardChartEmpty",false);show("dashboardChartBars",true);
+ }
+}
 async function loadCustomersModule(){if(!activeBusinessId||!permission("parties.view"))return;const {data,error}=await client.from("parties").select("id,name,company,phone,customer_type,kind").eq("business_id",activeBusinessId).in("kind",["customer","both"]).order("name");if(error)return fail(error);customers=data||[];await renderCustomers();if(permission("sales.view"))fillSaleCustomers();}
 async function loadSuppliersModule(){if(!activeBusinessId||!permission("parties.view"))return;const {data,error}=await client.from("parties").select("id,name,company,phone,kind").eq("business_id",activeBusinessId).in("kind",["supplier","both"]).order("name");if(error)return fail(error);suppliers=data||[];renderSuppliers();}
 const canPurchases=()=>permission("purchases.view");
