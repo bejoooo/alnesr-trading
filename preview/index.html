@@ -207,7 +207,7 @@ main{max-width:none;margin:0;padding:24px 28px}
 #moduleShell button[id^="cancel"],#moduleShell button[id^="close"],#moduleShell button[id^="remove"],#moduleShell button[id^="delete"]{background:#fff0ef;color:#a13e38;border:1px solid #f1d4d1;box-shadow:none}
 #moduleShell button.refresh-dashboard{background:#e8f1fb!important;color:#285b91!important;border:1px solid #d3e3f5!important}
 </style><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="this.onerror=null;this.src='https://unpkg.com/@supabase/supabase-js@2'"></script><script>window.ALNESR_SUPABASE_URL="https://hxwcjbmlxbqrurrmjbpf.supabase.co";window.ALNESR_SUPABASE_ANON_KEY="sb_publishable_cCvZKLiPcIxj9bq__X3_sg_RFWDWzYH";</script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script></head>
-<body><div id="previewBanner" style="background:#fff3cd;color:#664d03;text-align:center;padding:9px 12px;font:13px Tahoma,Arial,sans-serif;border-bottom:1px solid #ffecb5">نسخة معاينة v1.2.2 — للاختبار فقط — قاعدة بيانات منفصلة ولا تستخدم بيانات حقيقية</div><header><div><h1>النسر للتجارة</h1><p>نظام إدارة النشاط</p></div><div id="connection" class="status">غير مُعدّ للاتصال</div></header><main>
+<body><div id="previewBanner" style="background:#fff3cd;color:#664d03;text-align:center;padding:9px 12px;font:13px Tahoma,Arial,sans-serif;border-bottom:1px solid #ffecb5">نسخة معاينة v1.2.3 — للاختبار فقط — قاعدة بيانات منفصلة ولا تستخدم بيانات حقيقية</div><header><div><h1>النسر للتجارة</h1><p>نظام إدارة النشاط</p></div><div id="connection" class="status">غير مُعدّ للاتصال</div></header><main>
 <section id="setupNotice" class="panel warning"><h2>إعداد الاتصال بقاعدة البيانات</h2><p>الواجهة جاهزة مبدئيًا، لكنها لن تتصل ببيانات النشاط قبل إنشاء مشروع Supabase وإضافة رابط المشروع ومفتاح anon العام في ملف app/config.js.</p><p>لا تضع أبدًا مفتاح service_role أو أي كلمة مرور داخل هذا الملف.</p></section>
 <section id="authPanel" class="panel hidden"><h2>تسجيل الدخول</h2><form id="loginForm"><label>البريد الإلكتروني<input name="email" type="email" autocomplete="username" required></label><label>كلمة المرور<input name="password" type="password" autocomplete="current-password" required></label><button type="submit">تسجيل الدخول</button></form><form id="signupForm" class="secondary-form"><h3>إنشاء حساب موظف</h3><p class="muted">أنشئ حسابك أولًا، ثم أرسل بريدك الإلكتروني لمالك نشاط النسر ليضيفك ويحدد صلاحياتك. إنشاء الحساب وحده لا يمنحك الوصول لأي نشاط.</p><label>البريد الإلكتروني<input name="email" type="email" required></label><label>كلمة المرور (8 أحرف على الأقل)<input name="password" type="password" minlength="8" required></label><button type="submit" class="secondary">إنشاء حساب الموظف</button></form><p id="authMessage" role="status"></p></section>
 <section id="workspace" class="panel hidden"><div class="workspace-topbar"><div><h2 id="welcome">النشاط</h2><p id="memberRole"></p></div><div class="topbar-meta"><span class="topbar-dot"></span><span>مساحة العمل</span></div></div>
@@ -300,9 +300,11 @@ main{max-width:none;margin:0;padding:24px 28px}
 <div id="staffManagement" class="subpanel hidden"><h4>إدارة الموظفين والصلاحيات</h4>
 <form id="addMemberForm" class="form-grid"><label>البريد الإلكتروني للحساب<input name="email" type="email" required placeholder="employee@example.com"></label><label>الدور<select name="role"><option value="manager">مشرف</option><option value="cashier">كاشير</option><option value="viewer">مشاهدة فقط</option></select></label><div class="wide actions"><button type="submit">إضافة الموظف</button></div></form>
 <p class="muted">يجب أن ينشئ الموظف حسابًا في التطبيق ويؤكد بريده أولًا. لا نضع أي مفتاح سري داخل التطبيق لإرسال الدعوات.</p><div id="membersList"><p class="muted">اضغط تحديث لعرض الموظفين.</p></div></div></section>
-</div></div></section><p id="globalMessage" role="status"></p></main><footer>Al Nesr Trading · EGP · الإصدار 1.2.0</footer><script>
+</div></div></section><p id="globalMessage" role="status"></p></main><footer>Al Nesr Trading · EGP · الإصدار 1.2.3</footer><script type="module">
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+window.supabase = { createClient };
 (() => {
-const APP_VERSION="1.2.2";
+const APP_VERSION="1.2.3";
 const $=id=>document.getElementById(id),url=window.ALNESR_SUPABASE_URL||"",anon=window.ALNESR_SUPABASE_ANON_KEY||"";
 $("appVersion").textContent=APP_VERSION;
 const configured=url.startsWith("https://")&&!url.includes("YOUR-PROJECT")&&anon.length>30&&!anon.includes("YOUR_");
