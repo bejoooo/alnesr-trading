@@ -49,7 +49,7 @@ button:active{transform:translateY(1px)}
  .logout-button{min-width:unset;padding:9px 11px}
 }
 
-</style><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js" onerror="this.onerror=null;this.src=\'https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js\'"></script><script>window.ALNESR_SUPABASE_URL="https://njvaxrucfwgksqdfbckt.supabase.co";window.ALNESR_SUPABASE_ANON_KEY="sb_publishable_Sq_9gFw3ByRZ9EX7-5Rpzw_OkaA4jBn";</script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script>
+</style><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2?preview=2" onerror="this.onerror=null;this.src='https://unpkg.com/@supabase/supabase-js@2'"></script><script>window.ALNESR_SUPABASE_URL="https://njvaxrucfwgksqdfbckt.supabase.co";window.ALNESR_SUPABASE_ANON_KEY="sb_publishable_Sq_9gFw3ByRZ9EX7-5Rpzw_OkaA4jBn";</script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script>
 (() => {
 const APP_VERSION="1.1.0";
 const $=id=>document.getElementById(id),url=window.ALNESR_SUPABASE_URL||"",anon=window.ALNESR_SUPABASE_ANON_KEY||"";
@@ -59,7 +59,7 @@ let client=null,memberships=[],activeBusinessId=null,products=[],balances={};
 const message=(id,v)=>{$(id).textContent=v||""},show=(id,v)=>$(id).classList.toggle("hidden",!v);
 const fail=e=>{console.error(e);message("globalMessage",e?.message||"حصل خطأ غير متوقع.");};
 const today=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");};
-if(!configured||!window.supabase?.createClient){$("connection").textContent="بانتظار إعداد Supabase";show("setupNotice",true);return;}
+if(!configured){$("connection").textContent="إعداد قاعدة البيانات غير مكتمل";show("setupNotice",true);return;}if(!window.supabase?.createClient){$("connection").textContent="تعذر تحميل مكتبة الاتصال";$("setupNotice").querySelector("h2").textContent="تعذر تحميل مكتبة الاتصال";$("setupNotice").querySelector("p").textContent="إعدادات قاعدة الاختبار موجودة، لكن المتصفح لم يتمكن من تحميل مكتبة Supabase. تحقق من الاتصال بالإنترنت أو جرّب فتح الصفحة لاحقًا.";show("setupNotice",true);return;}
 client=window.supabase.createClient(url,anon,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
 $("connection").textContent="إعداد الاتصال مكتمل";show("setupNotice",false);show("authPanel",true);
 $("loginForm").addEventListener("submit",async e=>{e.preventDefault();message("authMessage","جارٍ تسجيل الدخول...");const d=new FormData(e.currentTarget);const {error}=await client.auth.signInWithPassword({email:d.get("email"),password:d.get("password")});if(error)return message("authMessage",error.message);message("authMessage","");await loadWorkspace();});
