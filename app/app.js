@@ -143,6 +143,13 @@ async function loadDashboardModule(){
  }
  try{await Promise.all(jobs);}catch(error){fail(error);Object.keys(cards).forEach(key=>{if(cards[key]===pending)cards[key]="تعذر التحميل";});}
  $("dashboardStats").innerHTML=[["sales","مبيعات الشهر الحالي"],["purchases","مشتريات الشهر الحالي"],["products","عدد المنتجات"],["cash","رصيد الخزنة"]].map(([key,label])=>'<div class="stat"><strong>'+esc(cards[key])+'</strong><span>'+esc(label)+'</span></div>').join("");
+ const stockStats=$("dashboardStockStats");
+ if(!permission("inventory.view")){stockStats.innerHTML='<div class="stat"><strong>—</strong><span>بيانات المخزون غير متاحة بالصلاحيات</span></div>';}
+ else{
+  const tracked=Object.keys(balances).length,low=Object.values(balances).filter(x=>x.below_minimum).length;
+  const units=Object.values(balances).reduce((sum,x)=>sum+Math.max(0,Number(x.quantity_on_hand||0)),0);
+  stockStats.innerHTML=[["products",products.length,"منتج نشط بالكتالوج"],["tracked",tracked,"منتج له بيانات مخزون"],["units",units.toLocaleString("en-EG"),"إجمالي الوحدات بالمخزون"],["low",low,"تحت حد التنبيه"]].map(([key,value,label])=>'<div class="stat"><strong>'+esc(value)+'</strong><span>'+esc(label)+'</span></div>').join("");
+ }
  const chart=$("dashboardChartBars"),empty=$("dashboardChartEmpty");
  if(!permission("sales.view")){empty.textContent="لا تتوفر صلاحية عرض بيانات المبيعات.";show("dashboardChartEmpty",true);show("dashboardChartBars",false);}
  else if(!chartRows.length){empty.textContent="لا توجد فواتير مبيعات خلال آخر 30 يوم.";show("dashboardChartEmpty",true);show("dashboardChartBars",false);}
