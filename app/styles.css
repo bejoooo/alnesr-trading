@@ -60,8 +60,8 @@ main{max-width:none;margin:0;padding:24px 28px}
 .topbar-meta{display:flex;align-items:center;gap:8px;color:#788897;font-size:12px;background:#fff;border:1px solid #e8edf2;border-radius:30px;padding:9px 14px}
 .topbar-dot{width:8px;height:8px;border-radius:50%;background:#36b37e;box-shadow:0 0 0 4px #36b37e1a}
 #moduleShell{max-width:1600px;margin:0 auto;background:transparent;border:0;box-shadow:none;padding:0}
-.app-layout{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:24px;align-items:stretch;direction:rtl}
-.sidebar{grid-column:2;grid-row:1;min-height:calc(100vh - 112px);height:100%;position:sticky;top:20px;display:flex;flex-direction:column;background:linear-gradient(165deg,#172f43 0%,#102638 100%);color:#fff;border-radius:20px;padding:22px 15px;box-shadow:0 16px 38px #132b3d20;overflow:hidden}
+.app-layout{display:grid;grid-template-columns:260px minmax(0,1fr);gap:24px;align-items:stretch;direction:rtl}
+.sidebar{grid-column:1;grid-row:1;min-height:calc(100vh - 112px);height:100%;position:sticky;top:20px;display:flex;flex-direction:column;background:linear-gradient(165deg,#172f43 0%,#102638 100%);color:#fff;border-radius:20px;padding:22px 15px;box-shadow:0 16px 38px #132b3d20;overflow:hidden}
 .sidebar:after{content:"";position:absolute;width:230px;height:230px;border:1px solid #ffffff0b;border-radius:50%;bottom:-125px;right:-90px;pointer-events:none}
 .sidebar-brand{display:flex;align-items:center;gap:12px;padding:3px 9px 25px;border-bottom:1px solid #ffffff18}
 .brand-mark{width:44px;height:44px;display:grid;place-items:center;border-radius:14px;background:linear-gradient(145deg,#e6bd72,#c89542);color:#142b3b;font-size:25px;font-weight:900;box-shadow:0 5px 15px #0002}
@@ -80,7 +80,7 @@ main{max-width:none;margin:0;padding:24px 28px}
 .logout-button{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;min-width:0!important;padding:11px 12px!important;background:#ffffff10!important;color:#f0c1bd!important;border:1px solid #ffffff16!important;border-radius:10px}
 .logout-button:hover{background:#ffffff18!important}
 .logout-symbol{font-size:17px}
-.app-layout>section{grid-column:1;grid-row:1;min-width:0;background:transparent}
+.app-layout>section{grid-column:2;grid-row:1;min-width:0;background:transparent}
 #dashboardModule{padding:2px 0}
 .dashboard-welcome{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:22px 25px;margin-bottom:27px;border-radius:18px;background:linear-gradient(105deg,#e9f2ff 0%,#f8fbff 70%,#fff 100%);border:1px solid #e2ecf8}
 .dashboard-welcome .eyebrow{display:block;color:#3977d5;font-size:11px;font-weight:700;margin-bottom:7px}
@@ -121,7 +121,7 @@ main{max-width:none;margin:0;padding:24px 28px}
 #moduleShell .subpanel,#moduleShell .table-wrap{background:#fff;border-color:#e7edf2}
 #moduleShell input,#moduleShell select,#moduleShell textarea{border-color:#dce4eb;border-radius:9px}
 #moduleShell button:not(.module-nav button){border-radius:9px}
-@media(max-width:1050px){#dashboardStats.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.app-layout{grid-template-columns:minmax(0,1fr) 235px;gap:17px}}
+@media(max-width:1050px){#dashboardStats.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.app-layout{grid-template-columns:235px minmax(0,1fr);gap:17px}}
 @media(max-width:760px){
  main{padding:14px 12px}
  #workspace>.workspace-topbar{margin-bottom:13px;align-items:flex-start}
@@ -149,3 +149,12 @@ main{max-width:none;margin:0;padding:24px 28px}
  .chart-empty{min-height:125px;text-align:center;padding:0 12px}
 }
 @media(max-width:390px){#dashboardStats.stats{grid-template-columns:1fr}.dashboard-welcome{gap:8px}}
+
+.chart-bars{height:165px;display:flex;align-items:flex-end;justify-content:space-around;gap:12px;padding:16px 10px 0;border-top:1px solid #f0f3f6;margin-top:18px}
+.chart-bar-column{height:100%;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:8px;min-width:0}
+.chart-bar-value{font-size:9px;color:#8293a2;white-space:nowrap}
+.chart-bar-track{height:105px;width:min(42px,72%);display:flex;align-items:flex-end;background:#f1f5fa;border-radius:8px 8px 3px 3px;overflow:hidden}
+.chart-bar-fill{display:block;width:100%;min-height:3px;background:linear-gradient(180deg,#6da1ed,#3977d5);border-radius:8px 8px 2px 2px}
+.chart-bar-label{font-size:10px;color:#8c9ba8;white-space:nowrap}
+.chart-empty{display:flex}
+.chart-empty.hidden{display:none!important}
