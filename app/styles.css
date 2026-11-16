@@ -95,10 +95,10 @@ main{max-width:none;margin:0;padding:24px 28px}
 #dashboardStats.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:0 0 22px}
 #dashboardStats .stat{position:relative;min-height:128px;justify-content:center;padding:20px 18px 18px 60px;border:1px solid #e9eef3;border-radius:16px;background:#fff;box-shadow:0 5px 18px #17354a08;overflow:hidden}
 #dashboardStats .stat:after{content:"";position:absolute;left:17px;top:20px;width:34px;height:34px;border-radius:11px;background:#edf4ff}
-#dashboardStats .stat:nth-child(1):after{background:#eaf1ff}
+#dashboardStats .stat:nth-child(1):after{background:#f2edff}
 #dashboardStats .stat:nth-child(2):after{background:#e9f8f0}
 #dashboardStats .stat:nth-child(3):after{background:#fff3e6}
-#dashboardStats .stat:nth-child(4):after{background:#f2edff}
+#dashboardStats .stat:nth-child(4):after{background:#eaf1ff}
 #dashboardStats .stat strong{font-size:21px;color:#233d53;line-height:1.4;word-break:break-word}
 #dashboardStats .stat span{font-size:11px;color:#8b9aa7}
 .dashboard-chart-panel{background:#fff;border:1px solid #e9eef3;border-radius:17px;padding:21px 22px;margin-bottom:17px;box-shadow:0 5px 18px #17354a06}
