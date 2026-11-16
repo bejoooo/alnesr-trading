@@ -159,6 +159,43 @@ main{max-width:none;margin:0;padding:24px 28px}
 .chart-bar-label{font-size:10px;color:#8c9ba8;white-space:nowrap}
 .chart-empty{display:flex}
 .chart-empty.hidden{display:none!important}
+
+
+/* v1.2.1 visibility + colorful navigation/dashboard polish */
+.app-layout{width:100%;min-width:0}
+.app-layout>section:not(.hidden){display:block!important;visibility:visible!important;opacity:1!important;min-width:0;width:100%;grid-column:2;grid-row:1}
+#dashboardModule:not(.hidden){display:block!important;visibility:visible!important;opacity:1!important;min-height:420px;width:100%;max-width:none}
+#dashboardModule .dashboard-welcome,
+#dashboardModule .dashboard-section-title,
+#dashboardModule #dashboardStats,
+#dashboardModule .dashboard-chart-panel,
+#dashboardModule .dashboard-tip,
+#dashboardModule .dashboard-footnote{display:flex}
+#dashboardModule #dashboardStats{display:grid}
+#dashboardModule .dashboard-chart-panel{display:block}
+#dashboardModule .dashboard-tip{display:flex}
+.module-nav button:before{width:30px;height:30px;flex:0 0 30px;border-radius:9px;background:#ffffff12;font-size:17px;line-height:1}
+.module-nav button:nth-child(1):before{content:"🏠";background:#3977d533}
+.module-nav button:nth-child(2):before{content:"📦";background:#e8a23a2b}
+.module-nav button:nth-child(3):before{content:"👥";background:#43b7a52b}
+.module-nav button:nth-child(4):before{content:"🚚";background:#8e7ce52b}
+.module-nav button:nth-child(5):before{content:"🛒";background:#e6a04a2b}
+.module-nav button:nth-child(6):before{content:"💳";background:#4b91d52b}
+.module-nav button:nth-child(7):before{content:"↩️";background:#d77d8b2b}
+.module-nav button:nth-child(8):before{content:"💰";background:#39ad812b}
+.module-nav button:nth-child(9):before{content:"📊";background:#548fdb2b}
+.module-nav button:nth-child(10):before{content:"⚙️";background:#9aa9b62b}
+.module-nav button:not(.secondary):before{background:#ffffff25}
+#dashboardStats .stat{padding-right:20px}
+#dashboardStats .stat:after{content:"💳";display:grid;place-items:center;font-size:17px}
+#dashboardStats .stat:nth-child(1):after{content:"💸";background:#f2edff}
+#dashboardStats .stat:nth-child(2):after{content:"🛍️";background:#e9f8f0}
+#dashboardStats .stat:nth-child(3):after{content:"📦";background:#fff3e6}
+#dashboardStats .stat:nth-child(4):after{content:"💰";background:#eaf1ff}
+@media(max-width:760px){
+ .app-layout>section:not(.hidden){display:block!important;width:100%;grid-column:1;grid-row:auto}
+ #dashboardModule:not(.hidden){min-height:360px}
+}
 </style><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js" onerror="this.onerror=null;this.src='https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js'"></script><script>window.ALNESR_SUPABASE_URL="https://njvaxrucfwgksqdfbckt.supabase.co";window.ALNESR_SUPABASE_ANON_KEY="sb_publishable_Sq_9gFw3ByRZ9EX7-5Rpzw_OkaA4jBn";</script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script></head>
 <body><div id="previewBanner" style="background:#fff3cd;color:#664d03;text-align:center;padding:9px 12px;font:13px Tahoma,Arial,sans-serif;border-bottom:1px solid #ffecb5">نسخة معاينة v1.2.0 — للاختبار فقط — قاعدة بيانات منفصلة ولا تستخدم بيانات حقيقية</div><header><div><h1>النسر للتجارة</h1><p>نظام إدارة النشاط</p></div><div id="connection" class="status">غير مُعدّ للاتصال</div></header><main>
 <section id="setupNotice" class="panel warning"><h2>إعداد الاتصال بقاعدة البيانات</h2><p>الواجهة جاهزة مبدئيًا، لكنها لن تتصل ببيانات النشاط قبل إنشاء مشروع Supabase وإضافة رابط المشروع ومفتاح anon العام في ملف app/config.js.</p><p>لا تضع أبدًا مفتاح service_role أو أي كلمة مرور داخل هذا الملف.</p></section>
