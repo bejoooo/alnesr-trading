@@ -125,7 +125,7 @@ function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&l
 applyReportPreset();client.auth.getSession().then(({data,error})=>{if(error)return fail(error);if(data.session)loadWorkspace();});client.auth.onAuthStateChange((event,session)=>{if(event==="SIGNED_IN"&&session)loadWorkspace();if(event==="SIGNED_OUT"){show("workspace",false);show("authPanel",true);}});
 
 const appModules=["dashboardModule","productsModule","customersModule","suppliersModule","purchasesModule","salesModule","returnsModule","cashModule","reportsModule","settingsModule"];
-function activateModule(id,tab,loader){appModules.forEach(x=>show(x,x===id));document.querySelectorAll(".module-nav button").forEach(b=>b.classList.add("secondary"));$(tab).classList.remove("secondary");if(loader)loader();}
+function activateModule(id,tab,loader){appModules.forEach(x=>{const el=$(x);el.classList.toggle("hidden",x!==id);});const active=$(id);if(active){active.classList.remove("hidden");active.style.display="block";active.style.visibility="visible";}document.querySelectorAll(".module-nav button").forEach(b=>b.classList.add("secondary"));$(tab).classList.remove("secondary");if(loader)loader();}
 async function loadDashboardModule(){
  if(!activeBusinessId)return;
  const pending="جارٍ التحميل...",denied="غير متاح بالصلاحيات";
