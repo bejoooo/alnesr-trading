@@ -122,6 +122,7 @@ main{max-width:none;margin:0;padding:24px 28px}
 #moduleShell .subpanel,#moduleShell .table-wrap{background:#fff;border-color:#e7edf2}
 #moduleShell input,#moduleShell select,#moduleShell textarea{border-color:#dce4eb;border-radius:9px}
 #moduleShell button:not(.module-nav button){border-radius:9px}
+.danger-zone{border-color:#e8c7c4!important;background:#fffafa!important}.danger-zone h4{color:#a13d36!important}.danger-zone .muted{color:#825d5a}.danger-button{background:#a93630!important;color:#fff!important}.danger-button:hover{background:#8d2924!important}
 @media(max-width:1050px){#dashboardStats.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.app-layout{grid-template-columns:235px minmax(0,1fr);gap:17px}}
 @media(max-width:760px){
  main{padding:14px 12px}
@@ -339,10 +340,12 @@ main{max-width:none;margin:0;padding:24px 28px}
 <div class="subpanel"><h4>بيانات النشاط</h4><form id="businessSettingsForm" class="form-grid"><label>اسم النشاط *<input name="name" required></label><label>رقم الهاتف<input name="phone"></label><label class="wide">العنوان<input name="address"></label><div class="wide actions"><button type="submit">حفظ بيانات النشاط</button></div></form><p id="businessSettingsNote" class="muted"></p></div>
 <div id="staffManagement" class="subpanel hidden"><h4>إدارة الموظفين والصلاحيات</h4>
 <form id="addMemberForm" class="form-grid"><label>البريد الإلكتروني للحساب<input name="email" type="email" required placeholder="employee@example.com"></label><label>الدور<select name="role"><option value="manager">مشرف</option><option value="cashier">كاشير</option><option value="viewer">مشاهدة فقط</option></select></label><div class="wide actions"><button type="submit">إضافة الموظف</button></div></form>
-<p class="muted">يجب أن ينشئ الموظف حسابًا في التطبيق ويؤكد بريده أولًا. لا نضع أي مفتاح سري داخل التطبيق لإرسال الدعوات.</p><div id="membersList"><p class="muted">اضغط تحديث لعرض الموظفين.</p></div></div></section>
-</div></div></section><p id="globalMessage" role="status"></p></main><footer>Al Nesr Trading · EGP · الإصدار 1.2.6</footer><script>
+<p class="muted">يجب أن ينشئ الموظف حسابًا في التطبيق ويؤكد بريده أولًا. لا نضع أي مفتاح سري داخل التطبيق لإرسال الدعوات.</p><div id="membersList"><p class="muted">اضغط تحديث لعرض الموظفين.</p></div></div>
+<div id="dangerZone" class="subpanel danger-zone hidden"><h4>إدارة الحذف وإعادة ضبط النشاط</h4><p><strong>إعادة ضبط جميع بيانات النشاط</strong></p><p class="muted">يمسح المنتجات والعملاء والموردين وفواتير البيع والشراء وبنودها والمرتجعات والدفعات وحركات المخزون والمصروفات وحركات الخزنة وإعدادات النشاط وسجل المراجعة. لا يحذف حساب الدخول أو عضويتك كمالك أو بيانات الاتصال بالمشروع.</p><p class="muted">هذه العملية نهائية ولا يمكن التراجع عنها. ننصح بتنزيل نسخة احتياطية أولًا من قسم التقارير والتصدير.</p>
+<form id="resetBusinessForm" class="form-grid"><label>كلمة مرور حسابك الحالي *<input name="password" type="password" autocomplete="current-password" required></label><label>اكتب عبارة التأكيد كما هي *<input name="confirmation" required autocomplete="off" placeholder="امسح كل بيانات النسر"></label><div class="wide actions"><button type="submit" class="danger-button">تصفير جميع بيانات النشاط نهائيًا</button></div></form><p class="muted">التصفير متاح لمالك النشاط فقط، ويتطلب كلمة المرور وعبارة التأكيد.</p></div></section>
+</div></div></section><p id="globalMessage" role="status"></p></main><footer>Al Nesr Trading · EGP · الإصدار 1.2.7</footer><script>
 (() => {
-const APP_VERSION="1.2.6";
+const APP_VERSION="1.2.7";
 const $=id=>document.getElementById(id),url=window.ALNESR_SUPABASE_URL||"",anon=window.ALNESR_SUPABASE_ANON_KEY||"";
 $("appVersion").textContent=APP_VERSION;
 const configured=url.startsWith("https://")&&!url.includes("YOUR-PROJECT")&&anon.length>30&&!anon.includes("YOUR_");
@@ -365,6 +368,29 @@ async function loadWorkspace(){message("globalMessage","جارٍ تحميل عض
 const STAFF_PERMISSION_OPTIONS=[["products.view","عرض المنتجات"],["products.create","إضافة منتجات"],["products.edit","تعديل المنتجات"],["parties.view","عرض العملاء والموردين"],["parties.create","إضافة العملاء والموردين"],["parties.edit","تعديل العملاء والموردين"],["purchases.view","عرض المشتريات"],["purchases.create","إنشاء مشتريات"],["purchases.edit","تعديل المشتريات"],["sales.view","عرض المبيعات"],["sales.create","إنشاء مبيعات"],["sales.edit","تعديل المبيعات"],["payments.view","عرض الدفعات"],["payments.create","إنشاء دفعات"],["payments.record","تسجيل التحصيل والسداد"],["inventory.view","عرض المخزون"],["inventory.create","تسوية المخزون"],["expenses.view","عرض المصروفات"],["expenses.create","إضافة مصروفات"],["expenses.edit","تعديل المصروفات"],["cash.view","عرض الخزنة"],["cash.create","حركات الخزنة"],["cash.deposit","إيداع نقدي"],["cash.withdraw","سحب نقدي"],["settings.view","عرض إعدادات النشاط"],["audit.view","عرض سجل المراجعة"]];
 const STAFF_ROLE_DEFAULTS={"manager":["products.view","products.create","products.edit","parties.view","parties.create","parties.edit","purchases.view","purchases.create","purchases.edit","sales.view","sales.create","sales.edit","payments.view","payments.create","payments.record","inventory.view","inventory.create","expenses.view","expenses.create","expenses.edit","cash.view","cash.create","cash.deposit","cash.withdraw","settings.view"],"cashier":["products.view","parties.view","parties.create","sales.view","sales.create","sales.edit","payments.view","payments.create","payments.record","inventory.view","cash.view","cash.create","cash.deposit","cash.withdraw"],"viewer":["products.view","parties.view","purchases.view","sales.view","payments.view","inventory.view","expenses.view","cash.view","settings.view","audit.view"]};
 function effectiveStaffPermission(m,k){if(Object.prototype.hasOwnProperty.call(m.permissions||{},k))return m.permissions[k]===true;return (STAFF_ROLE_DEFAULTS[m.role]||[]).includes(k);}
+async function resetBusinessData(e){
+ e.preventDefault();
+ const member=memberships.find(x=>x.business_id===activeBusinessId);
+ if(member?.role!=="owner")return message("globalMessage","إعادة ضبط البيانات متاحة لمالك النشاط فقط.");
+ const form=e.currentTarget,fd=new FormData(form),password=String(fd.get("password")||""),confirmation=String(fd.get("confirmation")||"").trim();
+ if(!password)return message("globalMessage","أدخل كلمة مرور حسابك للتأكيد.");
+ if(confirmation!=="امسح كل بيانات النسر")return message("globalMessage","عبارة التأكيد غير مطابقة. اكتب: امسح كل بيانات النسر");
+ const btn=form.querySelector('button[type="submit"]');
+ if(!confirm("تحذير نهائي: سيتم حذف كل بيانات النشاط المحدد، ولا يمكن التراجع. حسابك وعضويتك سيظلان موجودين. هل أنت متأكد؟"))return;
+ btn.disabled=true;message("globalMessage","جارٍ التحقق من كلمة المرور...");
+ try{
+  const {data:userData,error:userError}=await client.auth.getUser();
+  if(userError||!userData?.user?.email)throw userError||new Error("تعذر التحقق من حسابك الحالي.");
+  const {error:authError}=await client.auth.signInWithPassword({email:userData.user.email,password});
+  if(authError)throw new Error("كلمة المرور غير صحيحة؛ لم يتم حذف أي بيانات.");
+  message("globalMessage","تم التحقق. جارٍ تصفير بيانات النشاط...");
+  const {data,error}=await client.rpc("reset_business_data",{p_business_id:activeBusinessId});
+  if(error)throw error;
+  form.reset();
+  await loadWorkspace();
+  message("globalMessage","تم تصفير بيانات النشاط بنجاح. حساب الدخول وعضويتك كمالك ما زالا كما هما.");
+ }catch(err){fail(err);}finally{btn.disabled=false;}
+}
 async function loadSettingsModule(){
  if(!activeBusinessId||!permission("settings.view"))return;
  message("globalMessage","جارٍ تحميل إعدادات النشاط...");
@@ -372,6 +398,7 @@ async function loadSettingsModule(){
  if(error)return fail(error);if(!b)return message("globalMessage","تعذر العثور على بيانات النشاط.");
  const f=$("businessSettingsForm");f.elements.name.value=b.name||"";f.elements.phone.value=b.phone||"";f.elements.address.value=b.address||"";
  const m=memberships.find(x=>x.business_id===activeBusinessId);
+ show("dangerZone",m?.role==="owner");
  if(m?.role==="owner")await loadBusinessMembers();else $("membersList").innerHTML='<p class="muted">إدارة الموظفين متاحة لمالك النشاط فقط.</p>';
  message("globalMessage","");
 }
@@ -522,7 +549,7 @@ $("cancelPurchase").addEventListener("click",()=>show("purchaseEditor",false));
 $("purchaseForm").addEventListener("input",updatePurchaseTotals);
 $("purchaseForm").addEventListener("submit",savePurchase);
 $("purchaseSearch").addEventListener("input",renderPurchaseInvoices);
-$("refreshPurchases").addEventListener("click",loadPurchasesModule);$("refreshDashboard").addEventListener("click",loadDashboardModule);$("refreshSettings").addEventListener("click",loadSettingsModule);$("businessSettingsForm").addEventListener("submit",saveBusinessSettings);$("addMemberForm").addEventListener("submit",addBusinessMember);
+$("refreshPurchases").addEventListener("click",loadPurchasesModule);$("refreshDashboard").addEventListener("click",loadDashboardModule);$("refreshSettings").addEventListener("click",loadSettingsModule);$("resetBusinessForm").addEventListener("submit",resetBusinessData);$("businessSettingsForm").addEventListener("submit",saveBusinessSettings);$("addMemberForm").addEventListener("submit",addBusinessMember);
 $("closeStatement").addEventListener("click",()=>show("supplierStatement",false));
 $("cancelPayment").addEventListener("click",()=>show("paymentEditor",false));
 $("supplierPaymentForm").addEventListener("submit",saveSupplierPayment);
