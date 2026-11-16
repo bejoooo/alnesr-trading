@@ -195,3 +195,14 @@ main{max-width:none;margin:0;padding:24px 28px}
  .app-layout>section:not(.hidden){display:block!important;width:100%;grid-column:1;grid-row:auto}
  #dashboardModule:not(.hidden){min-height:360px}
 }
+
+
+/* v1.2.2 — dashboard visibility and in-page action colors */
+#moduleShell .app-layout>section:not(.hidden){display:block!important;visibility:visible!important;min-width:0}
+#moduleShell .app-layout>#dashboardModule:not(.hidden){display:block!important;visibility:visible!important;opacity:1}
+#moduleShell button:not(.module-nav button):not(.logout-button){background:linear-gradient(135deg,#3977d5,#2864bd);color:#fff;border:1px solid #2e69bf;box-shadow:0 3px 9px #3977d526}
+#moduleShell button:not(.module-nav button):not(.logout-button):hover{background:linear-gradient(135deg,#2f6fcf,#2058a9);box-shadow:0 5px 13px #3977d538}
+#moduleShell button.secondary:not(.module-nav button){background:#e8f1fb;color:#285b91;border:1px solid #d3e3f5;box-shadow:none}
+#moduleShell button.secondary:not(.module-nav button):hover{background:#dceafa}
+#moduleShell button[id^="cancel"],#moduleShell button[id^="close"],#moduleShell button[id^="remove"],#moduleShell button[id^="delete"]{background:#fff0ef;color:#a13e38;border:1px solid #f1d4d1;box-shadow:none}
+#moduleShell button.refresh-dashboard{background:#e8f1fb!important;color:#285b91!important;border:1px solid #d3e3f5!important}
