@@ -230,8 +230,31 @@ main{max-width:none;margin:0;padding:24px 28px}
 @media(max-width:1050px){.dashboard-kpis,.dashboard-stock-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.dashboard-analytics-grid{grid-template-columns:1fr}}
 @media(max-width:760px){.dashboard-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}#dashboardStats .stat{min-height:104px;padding:15px 12px}#dashboardStats .stat strong{font-size:17px}#dashboardStats .stat:after{width:27px;height:27px;left:10px;top:13px}.dashboard-panel{padding:15px}.dashboard-chart{min-height:190px}.dashboard-chart svg{height:180px}.dashboard-stock-grid{grid-template-columns:1fr}.stock-donut-wrap{gap:15px}.dashboard-stock-stats{gap:9px}.dashboard-stock-stats .stat{padding:13px}.dashboard-stock-stats .stat strong{font-size:17px}.low-stock-item{grid-template-columns:minmax(70px,1fr) minmax(55px,1fr) auto;gap:7px}.chart-heading h4{font-size:13px}}
 @media(max-width:390px){.dashboard-kpis,.dashboard-stock-stats{grid-template-columns:1fr}.stock-donut{width:125px;height:125px}.stock-donut:after{inset:24px}}
+
+/* Dashboard readability and cash chart legend — v1.2.7 */
+.chart-legend.cash-chart-legend{padding-top:2px;padding-bottom:2px;gap:18px;font-size:12px;color:#718394}
+.chart-legend .legend-cash-in{background:#22a78a}
+.chart-legend .legend-cash-out{background:#e17b7b}
+#dashboardStats .stat strong{font-size:25px}
+.dashboard-stock-stats .stat strong{font-size:24px}
+.dashboard-stock-stats .stat span{font-size:12px}
+.chart-summary span{font-size:12px;padding:8px 11px}
+.chart-summary strong{font-size:14px}
+.stock-legend{font-size:12px}
+.low-stock-item{font-size:12px}
+.low-stock-qty{font-size:12px}
+@media(max-width:760px){
+ #dashboardStats .stat strong{font-size:20px}
+ .dashboard-stock-stats .stat strong{font-size:20px}
+ .dashboard-stock-stats .stat span{font-size:11px}
+ .chart-summary span{font-size:11px}
+ .chart-summary strong{font-size:13px}
+ .chart-legend.cash-chart-legend{font-size:11px}
+ .stock-legend,.low-stock-item{font-size:11px}
+ .low-stock-qty{font-size:11px}
+}
 </style><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js" onerror="this.onerror=null;this.src='https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js'"></script><script>window.ALNESR_SUPABASE_URL="https://hxwcjbmlxbqrurrmjbpf.supabase.co";window.ALNESR_SUPABASE_ANON_KEY="sb_publishable_cCvZKLiPcIxj9bq__X3_sg_RFWDWzYH";</script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script></head>
-<body><div id="previewBanner" style="background:#fff3cd;color:#664d03;text-align:center;padding:9px 12px;font:13px Tahoma,Arial,sans-serif;border-bottom:1px solid #ffecb5">نسخة معاينة v1.2.6 — للاختبار فقط — قاعدة بيانات منفصلة ولا تستخدم بيانات حقيقية</div><header><div><h1>النسر للتجارة</h1><p>نظام إدارة النشاط</p></div><div id="connection" class="status">غير مُعدّ للاتصال</div></header><main>
+<body><div id="previewBanner" style="background:#fff3cd;color:#664d03;text-align:center;padding:9px 12px;font:13px Tahoma,Arial,sans-serif;border-bottom:1px solid #ffecb5">نسخة معاينة v1.2.7 — للاختبار فقط — قاعدة بيانات منفصلة ولا تستخدم بيانات حقيقية</div><header><div><h1>النسر للتجارة</h1><p>نظام إدارة النشاط</p></div><div id="connection" class="status">غير مُعدّ للاتصال</div></header><main>
 <section id="setupNotice" class="panel warning"><h2>إعداد الاتصال بقاعدة البيانات</h2><p>الواجهة جاهزة مبدئيًا، لكنها لن تتصل ببيانات النشاط قبل إنشاء مشروع Supabase وإضافة رابط المشروع ومفتاح anon العام في ملف app/config.js.</p><p>لا تضع أبدًا مفتاح service_role أو أي كلمة مرور داخل هذا الملف.</p></section>
 <section id="authPanel" class="panel hidden"><h2>تسجيل الدخول</h2><form id="loginForm"><label>البريد الإلكتروني<input name="email" type="email" autocomplete="username" required></label><label>كلمة المرور<input name="password" type="password" autocomplete="current-password" required></label><button type="submit">تسجيل الدخول</button></form><form id="signupForm" class="secondary-form"><h3>إنشاء حساب موظف</h3><p class="muted">أنشئ حسابك أولًا، ثم أرسل بريدك الإلكتروني لمالك نشاط النسر ليضيفك ويحدد صلاحياتك. إنشاء الحساب وحده لا يمنحك الوصول لأي نشاط.</p><label>البريد الإلكتروني<input name="email" type="email" required></label><label>كلمة المرور (8 أحرف على الأقل)<input name="password" type="password" minlength="8" required></label><button type="submit" class="secondary">إنشاء حساب الموظف</button></form><p id="authMessage" role="status"></p></section>
 <section id="workspace" class="panel hidden"><div class="workspace-topbar"><div><h2 id="welcome">النشاط</h2><p id="memberRole"></p></div><div class="topbar-meta"><span class="topbar-dot"></span><span>مساحة العمل</span></div></div>
@@ -244,7 +267,7 @@ main{max-width:none;margin:0;padding:24px 28px}
 </div>
 <div class="dashboard-analytics-grid">
  <div class="dashboard-panel dashboard-panel-wide"><div class="chart-heading"><div><h4>حركة المبيعات والمشتريات</h4><p>مقارنة يومية خلال آخر 30 يوم</p></div><span class="chart-icon">↗</span></div><div id="dashboardRevenueChart" class="dashboard-chart"><div class="chart-empty">جارٍ تحميل الرسم البياني...</div></div><div class="chart-legend"><span><i class="legend-sales"></i> المبيعات</span><span><i class="legend-purchases"></i> المشتريات</span></div></div>
- <div class="dashboard-panel"><div class="chart-heading"><div><h4>حركة الخزنة</h4><p>الإيداعات والسحوبات خلال آخر 30 يوم</p></div><span class="chart-icon">ج.م</span></div><div id="dashboardCashChart" class="dashboard-chart dashboard-chart-compact"><div class="chart-empty">جارٍ تحميل البيانات...</div></div><div id="dashboardCashSummary" class="chart-summary"></div></div>
+ <div class="dashboard-panel"><div class="chart-heading"><div><h4>حركة الخزنة</h4><p>الإيداعات والسحوبات خلال آخر 30 يوم</p></div><span class="chart-icon">ج.م</span></div><div id="dashboardCashChart" class="dashboard-chart dashboard-chart-compact"><div class="chart-empty">جارٍ تحميل البيانات...</div></div><div class="chart-legend cash-chart-legend"><span><i class="legend-cash-in"></i> الداخل</span><span><i class="legend-cash-out"></i> الخارج</span></div><div id="dashboardCashSummary" class="chart-summary"></div></div>
 </div>
 <div class="dashboard-section-title stock-overview-title"><div><h4>حالة المخزون</h4><p>الكتالوج والكميات والتنبيهات</p></div><span class="period-label">الوضع الحالي</span></div>
 <div id="dashboardStockStats" class="stats dashboard-stock-stats"><div class="stat"><strong>جارٍ التحميل...</strong><span>مؤشرات المخزون</span></div></div>
@@ -502,7 +525,7 @@ function activateModule(id,tab,loader){appModules.forEach(x=>{const el=$(x);el.c
 
 function dashboardDateKey(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
 function dashboardSeries(rows,dateField,valueField,base,buckets=6){const totals=Array(buckets).fill(0);rows.forEach(row=>{const p=String(row[dateField]||"").slice(0,10).split("-").map(Number);if(p.length!==3||!p[0])return;const d=new Date(p[0],p[1]-1,p[2]);d.setHours(0,0,0,0);const idx=Math.floor((d-base)/86400000/5);if(idx>=0&&idx<buckets)totals[idx]+=Number(row[valueField]||0);});return totals;}
-function dashboardSvgLine(series,labels,colors){const all=series.flatMap(x=>x.values),max=Math.max(...all,1),w=720,h=205,left=52,right=12,top=14,bottom=29,pw=w-left-right,ph=h-top-bottom;const y=v=>top+ph-(v/max)*ph,x=i=>left+(i/(labels.length-1))*pw;const grid=[0,.25,.5,.75,1].map(t=>{const yy=top+ph-t*ph;return '<line x1="'+left+'" y1="'+yy+'" x2="'+(w-right)+'" y2="'+yy+'" stroke="#edf1f5" stroke-width="1"/><text x="'+(left-9)+'" y="'+(yy+3)+'" text-anchor="end" fill="#9aa8b4" font-size="9">'+esc(Math.round(max*t).toLocaleString("en-EG"))+'</text>';}).join("");const xlabels=labels.map((v,i)=>'<text x="'+x(i)+'" y="'+(h-7)+'" text-anchor="middle" fill="#91a0ad" font-size="9">'+esc(v)+'</text>').join("");const lines=series.map((item,idx)=>{const pts=item.values.map((v,i)=>x(i)+","+y(v)).join(" ");const dots=item.values.map((v,i)=>'<circle cx="'+x(i)+'" cy="'+y(v)+'" r="3.5" fill="'+colors[idx]+'" stroke="#fff" stroke-width="2"/>').join("");return '<polyline points="'+pts+'" fill="none" stroke="'+colors[idx]+'" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>'+dots;}).join("");return '<svg viewBox="0 0 '+w+' '+h+'" role="img" aria-label="رسم بياني لحركة النشاط">'+grid+xlabels+lines+'</svg>';}
+function dashboardSvgLine(series,labels,colors){const all=series.flatMap(x=>x.values),max=Math.max(...all,1),w=720,h=205,left=52,right=12,top=14,bottom=29,pw=w-left-right,ph=h-top-bottom;const y=v=>top+ph-(v/max)*ph,x=i=>left+(i/(labels.length-1))*pw;const grid=[0,.25,.5,.75,1].map(t=>{const yy=top+ph-t*ph;return '<line x1="'+left+'" y1="'+yy+'" x2="'+(w-right)+'" y2="'+yy+'" stroke="#edf1f5" stroke-width="1"/><text x="'+(left-9)+'" y="'+(yy+3)+'" text-anchor="end" fill="#9aa8b4" font-size="11">'+esc(Math.round(max*t).toLocaleString("en-EG"))+'</text>';}).join("");const xlabels=labels.map((v,i)=>'<text x="'+x(i)+'" y="'+(h-7)+'" text-anchor="middle" fill="#91a0ad" font-size="10">'+esc(v)+'</text>').join("");const lines=series.map((item,idx)=>{const pts=item.values.map((v,i)=>x(i)+","+y(v)).join(" ");const dots=item.values.map((v,i)=>'<circle cx="'+x(i)+'" cy="'+y(v)+'" r="3.5" fill="'+colors[idx]+'" stroke="#fff" stroke-width="2"/>').join("");return '<polyline points="'+pts+'" fill="none" stroke="'+colors[idx]+'" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>'+dots;}).join("");return '<svg viewBox="0 0 '+w+' '+h+'" role="img" aria-label="رسم بياني لحركة النشاط">'+grid+xlabels+lines+'</svg>';}
 function dashboardRenderLine(id,series,labels,colors,emptyText){const el=$(id);if(!el)return;if(!series.some(x=>x.values.some(v=>v>0))){el.innerHTML='<div class="chart-empty">'+esc(emptyText)+'</div>';return;}el.innerHTML=dashboardSvgLine(series,labels,colors);}
 async function loadDashboardModule(){
  if(!activeBusinessId)return;
