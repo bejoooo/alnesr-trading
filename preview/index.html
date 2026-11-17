@@ -841,7 +841,7 @@ function exportReportsExcel(){
  message("globalMessage","تم تجهيز ملف Excel بالتقارير المتاحة حسب صلاحيات حسابك.");
 }
 
-const backupTables=["products","parties","purchase_invoices","purchase_items","sales_invoices","sales_items","payments","stock_movements","sales_returns","sales_return_items","expenses","cash_transactions","business_settings"];
+const backupTables=["products","parties","purchase_invoices","purchase_items","purchase_invoice_cost_snapshots","sales_invoices","sales_items","payments","stock_movements","stock_adjustment_cost_snapshots","sales_returns","sales_return_items","expenses","cash_transactions","business_settings"];
 async function fetchBackupRows(table){
  let rows=[],from=0,step=1000;
  while(true){
@@ -860,7 +860,7 @@ async function exportBusinessBackup(){
   message("globalMessage","جارٍ تجهيز النسخة الاحتياطية...");
   const tables={};
   for(const name of backupTables)tables[name]=await fetchBackupRows(name);
-  const backup={format_version:"alnesr-business-backup-v1",created_at:new Date().toISOString(),business_id:activeBusinessId,business_name:$("welcome").textContent,tables};
+  const backup={format_version:"alnesr-business-backup-v2",created_at:new Date().toISOString(),business_id:activeBusinessId,business_name:$("welcome").textContent,tables};
   const blob=new Blob([JSON.stringify(backup)],{type:"application/json"});
   if(blob.size>100*1024*1024)return message("globalMessage","حجم النسخة أكبر من الحد الحالي للاستعادة (100 ميجابايت).");
   const url=URL.createObjectURL(blob),link=document.createElement("a");
@@ -876,7 +876,7 @@ async function restoreBusinessBackup(){
  if(file.size>100*1024*1024)return message("globalMessage","حجم الملف أكبر من الحد المسموح (100 ميجابايت).");
  let backup;
  try{backup=JSON.parse(await file.text());}catch(e){return message("globalMessage","الملف ليس JSON صالحًا.");}
- if(backup?.format_version!=="alnesr-business-backup-v1"||backup?.business_id!==activeBusinessId||!backup.tables)return message("globalMessage","النسخة لا تخص هذا النشاط أو إصدارها غير مدعوم.");
+ if(backup?.format_version!=="alnesr-business-backup-v2"||backup?.business_id!==activeBusinessId||!backup.tables)return message("globalMessage","النسخة لا تخص هذا النشاط أو إصدارها غير مدعوم.");
  if(!confirm("تنبيه: الاستعادة متاحة فقط إذا كانت جداول بيانات هذا النشاط فارغة. ستتم إضافة البيانات من الملف داخل معاملة واحدة. هل تريد المتابعة؟"))return;
  message("globalMessage","جارٍ استعادة البيانات والتحقق من العلاقات...");
  const {data,error}=await client.rpc("restore_business_backup",{p_business_id:activeBusinessId,p_backup:backup});
