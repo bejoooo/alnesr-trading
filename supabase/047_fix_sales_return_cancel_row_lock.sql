@@ -23,6 +23,10 @@ declare
  loop$new$;
 begin
  select pg_get_functiondef('public.owner_remove_sales_return(uuid,uuid)'::regprocedure) into v_def;
- if position(v_old in v_def)=0 then raise exception 'Expected return cancellation loop was not found'; end if;
- execute replace(v_def,v_old,v_new);
+ if position(v_old in v_def)>0 then
+  execute replace(v_def,v_old,v_new);
+ elsif position('max(si.returned_quantity) as returned_quantity' in v_def)=0
+    or position('order by si.id for update' in v_def)=0 then
+  raise exception 'Sales return cancellation function has an unexpected definition';
+ end if;
 end $$;
