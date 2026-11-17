@@ -867,7 +867,7 @@ function exportReportsExcel(){
  message("globalMessage","تم تجهيز ملف Excel بالتقارير المتاحة حسب صلاحيات حسابك.");
 }
 
-const backupTables=["products","parties","purchase_invoices","purchase_items","purchase_invoice_cost_snapshots","sales_invoices","sales_items","payments","stock_movements","stock_adjustment_cost_snapshots","sales_returns","sales_return_items","expenses","cash_transactions","business_settings","audit_log"];
+const backupTables=["products","parties","purchase_invoices","purchase_items","purchase_invoice_cost_snapshots","sales_invoices","sales_items","payments","stock_movements","stock_adjustment_cost_snapshots","sales_returns","sales_return_items","expenses","cash_transactions","business_settings"];
 async function fetchBackupRows(table){
  let rows=[],from=0,step=1000;
  while(true){
