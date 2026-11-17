@@ -887,7 +887,14 @@ function blobToBase64(blob){
   reader.readAsDataURL(blob);
  });
 }
+function detectProductImageType(bytes){
+ if(bytes.length>=3&&bytes[0]===0xff&&bytes[1]===0xd8&&bytes[2]===0xff)return "image/jpeg";
+ if(bytes.length>=8&&bytes[0]===0x89&&bytes[1]===0x50&&bytes[2]===0x4e&&bytes[3]===0x47&&bytes[4]===0x0d&&bytes[5]===0x0a&&bytes[6]===0x1a&&bytes[7]===0x0a)return "image/png";
+ if(bytes.length>=12&&String.fromCharCode(...bytes.slice(0,4))==="RIFF"&&String.fromCharCode(...bytes.slice(8,12))==="WEBP")return "image/webp";
+ return null;
+}
 function base64ToBytes(value){
+ if(typeof value!=="string"||!value||value.length>7*1024*1024||value.length%4!==0||!/^[A-Za-z0-9+/]*={0,2}$/.test(value))throw new Error("ترميز إحدى الصور في النسخة غير صالح.");
  const binary=atob(value),bytes=new Uint8Array(binary.length);
  for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
  return bytes;
@@ -901,13 +908,14 @@ async function exportProductImages(productsRows){
  const images=[];
  for(const path of paths){
   const url=signed.get(path);
-  if(!url)throw new Error("تعذر إنشاء رابط مؤقت لإحدى صور المنتجات: "+path);
+  if(!url)throw new Error("تعذر إنشاء رابط مؤقت لإحدى صور المنتجات.");
   const response=await fetch(url);
   if(!response.ok)throw new Error("تعذر تنزيل صورة منتج من التخزين الخاص.");
   const blob=await response.blob();
   if(blob.size>5*1024*1024)throw new Error("إحدى صور المنتجات أكبر من الحد المسموح.");
-  if(!["image/jpeg","image/png","image/webp"].includes(blob.type))throw new Error("نوع إحدى صور المنتجات غير مدعوم.");
-  images.push({path,type:blob.type,size:blob.size,data:await blobToBase64(blob)});
+  const bytes=new Uint8Array(await blob.arrayBuffer()),actualType=detectProductImageType(bytes);
+  if(!actualType||(["image/jpeg","image/png","image/webp"].includes(blob.type)&&blob.type!==actualType))throw new Error("محتوى إحدى صور المنتجات غير صالح أو نوعه غير متطابق.");
+  images.push({path,type:actualType,size:blob.size,data:await blobToBase64(new Blob([bytes],{type:actualType}))});
  }
  return images;
 }
@@ -935,40 +943,57 @@ async function restoreBusinessBackup(){
  if(file.size>100*1024*1024)return message("globalMessage","حجم الملف أكبر من الحد المسموح (100 ميجابايت).");
  let backup;
  try{backup=JSON.parse(await file.text());}catch(e){return message("globalMessage","الملف ليس JSON صالحًا.");}
- if(backup?.format_version!=="alnesr-business-backup-v2"||backup?.business_id!==activeBusinessId||!backup.tables)return message("globalMessage","النسخة لا تخص هذا النشاط أو إصدارها غير مدعوم.");
+ if(backup?.format_version!=="alnesr-business-backup-v2"||backup?.business_id!==activeBusinessId||!backup.tables||typeof backup.tables!=="object")return message("globalMessage","النسخة لا تخص هذا النشاط أو إصدارها غير مدعوم.");
+ const requiredTables=["products","parties","purchase_invoices","purchase_items","purchase_invoice_cost_snapshots","sales_invoices","sales_items","payments","stock_movements","stock_adjustment_cost_snapshots","sales_returns","sales_return_items","expenses","cash_transactions","business_settings"];
+ if(requiredTables.some(name=>!Array.isArray(backup.tables[name]))||(backup.tables.audit_log!==undefined&&!Array.isArray(backup.tables.audit_log)))return message("globalMessage","النسخة ناقصة أو تحتوي جداول بصيغة غير صالحة.");
  const images=backup.images??[];
  if(!Array.isArray(images))return message("globalMessage","قائمة صور النسخة غير صالحة.");
- const productPaths=new Set((backup.tables.products||[]).map(p=>p.image_path).filter(Boolean));
- const seenPaths=new Set();
+ const productRows=backup.tables.products,productPaths=new Set(productRows.map(p=>p.image_path).filter(Boolean));
+ const seenPaths=new Set(),uuid="[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
  try{
   for(const image of images){
-   if(!image||typeof image.path!=="string"||!image.path.startsWith(activeBusinessId+"/")||!productPaths.has(image.path)||seenPaths.has(image.path)||!["image/jpeg","image/png","image/webp"].includes(image.type)||typeof image.data!=="string")throw new Error("ملف النسخة يحتوي صورة غير مرتبطة بمنتج في هذا النشاط.");
+   if(!image||typeof image.path!=="string"||!productPaths.has(image.path)||seenPaths.has(image.path)||!["image/jpeg","image/png","image/webp"].includes(image.type)||typeof image.data!=="string")throw new Error("ملف النسخة يحتوي صورة غير مرتبطة بمنتج في هذا النشاط.");
+   const parts=image.path.split("/");
+   if(parts.length!==3||parts[0]!==activeBusinessId||!new RegExp("^"+uuid+"$","i").test(parts[1])||!new RegExp("^"+uuid+"\\.(jpg|png|webp)$","i").test(parts[2]))throw new Error("مسار إحدى الصور غير صالح.");
+   const product=productRows.find(p=>p.id===parts[1]);
+   if(!product||product.image_path!==image.path)throw new Error("صورة غير مرتبطة بالمنتج الصحيح.");
+   if(image.data.length>7*1024*1024)throw new Error("حجم بيانات إحدى الصور أكبر من الحد المسموح.");
+   const bytes=base64ToBytes(image.data),actualType=detectProductImageType(bytes);
+   if(bytes.length>5*1024*1024||Number(image.size)!==bytes.length||actualType!==image.type)throw new Error("محتوى إحدى الصور أو حجمها غير متطابق.");
    seenPaths.add(image.path);
-   const bytes=base64ToBytes(image.data);
-   if(bytes.length>5*1024*1024||(image.size&&Number(image.size)!==bytes.length))throw new Error("حجم إحدى الصور أو بياناتها غير متطابق.");
   }
  }catch(e){return message("globalMessage",e.message||"بيانات الصور في النسخة غير صالحة.");}
  if(images.length!==productPaths.size)return message("globalMessage","النسخة لا تحتوي كل صور المنتجات المشار إليها. لن تتم الاستعادة حتى لا تظهر منتجات بصور مفقودة.");
  if(!confirm("تنبيه: الاستعادة متاحة فقط إذا كانت جداول بيانات هذا النشاط فارغة. سيتم رفع صور المنتجات الخاصة أولًا ثم استعادة البيانات داخل معاملة واحدة. هل تريد المتابعة؟"))return;
  message("globalMessage","جارٍ تجهيز صور النسخة داخل التخزين الخاص...");
  const uploaded=[];
- for(const image of images){
-  const {error}=await client.storage.from("product-images").upload(image.path,new Blob([base64ToBytes(image.data)],{type:image.type}),{contentType:image.type,upsert:false});
-  if(error){
-   if(uploaded.length)await client.storage.from("product-images").remove(uploaded);
-   return fail(error);
+ const cleanupUploaded=async()=>{
+  if(!uploaded.length)return true;
+  const {error}=await client.storage.from("product-images").remove(uploaded);
+  if(error){console.error("Backup restore image cleanup failed:",error);return false;}
+  return true;
+ };
+ try{
+  for(const image of images){
+   const bytes=base64ToBytes(image.data);
+   const {error}=await client.storage.from("product-images").upload(image.path,new Blob([bytes],{type:image.type}),{contentType:image.type,upsert:false});
+   if(error)throw error;
+   uploaded.push(image.path);
   }
-  uploaded.push(image.path);
+ }catch(e){
+  const clean=await cleanupUploaded();
+  return message("globalMessage",clean?"تعذر تجهيز صور النسخة؛ لم تتم الاستعادة. "+(e.message||""):"تعذر تجهيز الصور وفشل تنظيف بعض الملفات المؤقتة. لم تتم استعادة بيانات النشاط؛ تواصل مع الدعم قبل إعادة المحاولة.");
  }
  message("globalMessage","تم تجهيز الصور. جارٍ استعادة بيانات النشاط والتحقق من العلاقات...");
  const {data,error}=await client.rpc("restore_business_backup",{p_business_id:activeBusinessId,p_backup:backup});
  if(error){
-  if(uploaded.length)await client.storage.from("product-images").remove(uploaded);
-  return fail(error);
+  const clean=await cleanupUploaded();
+  return message("globalMessage",clean?"فشلت استعادة البيانات وتم تنظيف الصور التي رُفعت. "+(error.message||""):"فشلت الاستعادة وتعذر تنظيف بعض الصور المرفوعة. لم تُستعد بيانات النشاط؛ تواصل مع الدعم قبل إعادة المحاولة.");
  }
  $("backupFile").value="";
  message("globalMessage","تمت استعادة البيانات والصور. جارٍ تحديث الواجهة...");
  await loadWorkspace();
+}
 }
 
 })();
