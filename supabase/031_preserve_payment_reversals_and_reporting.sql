@@ -469,84 +469,77 @@ UNION ALL
   WHERE r.customer_id IS NOT NULL AND r.status <> 'void'::text;;
 
 create or replace view public.daily_business_summary
-with (security_invoker = true) as
- WITH report_dates AS (
-         SELECT sales_invoices.business_id,
-            sales_invoices.invoice_date AS report_date
-           FROM sales_invoices
-          WHERE sales_invoices.status <> 'void'::text
-        UNION
-         SELECT purchase_invoices.business_id,
-            purchase_invoices.invoice_date
-           FROM purchase_invoices
-          WHERE purchase_invoices.status <> 'void'::text
-        UNION
-         SELECT expenses.business_id,
-            expenses.expense_date
-           FROM expenses
-        UNION
-         SELECT cash_transactions.business_id,
-            cash_transactions.transaction_date
-           FROM cash_transactions
-        UNION
-         SELECT p_1.business_id,
-            p_1.payment_date
-           FROM payments p_1
-          WHERE p_1.invoice_id IS NULL OR (EXISTS ( SELECT 1
-                   FROM sales_invoices si
-                  WHERE si.id = p_1.invoice_id AND si.business_id = p_1.business_id AND si.status <> 'void'::text)) OR (EXISTS ( SELECT 1
-                   FROM purchase_invoices pi
-                  WHERE pi.id = p_1.invoice_id AND pi.business_id = p_1.business_id AND pi.status <> 'void'::text))
-        )
- SELECT d.business_id,
-    d.report_date,
-    COALESCE(s.sales_total, 0::numeric)::numeric(14,2) AS sales_total,
-    COALESCE(pay.sales_collected, 0::numeric)::numeric(14,2) AS sales_collected,
-    COALESCE(s.sales_due, 0::numeric)::numeric(14,2) AS sales_outstanding,
-    COALESCE(p.purchase_total, 0::numeric)::numeric(14,2) AS purchases_total,
-    COALESCE(pay.purchases_paid, 0::numeric)::numeric(14,2) AS purchases_paid,
-    COALESCE(e.expenses_total, 0::numeric)::numeric(14,2) AS expenses_total,
-    COALESCE(c.cash_in, 0::numeric)::numeric(14,2) AS cash_in,
-    COALESCE(c.cash_out, 0::numeric)::numeric(14,2) AS cash_out
-   FROM report_dates d
-     LEFT JOIN LATERAL ( SELECT sum(x.total) AS sales_total,
-            sum(x.due_total) AS sales_due
-           FROM sales_invoices x
-          WHERE x.business_id = d.business_id AND x.invoice_date = d.report_date AND x.status <> 'void'::text) s ON true
-     LEFT JOIN LATERAL ( SELECT sum(x.total) AS purchase_total
-           FROM purchase_invoices x
-          WHERE x.business_id = d.business_id AND x.invoice_date = d.report_date AND x.status <> 'void'::text) p ON true
-     LEFT JOIN LATERAL ( SELECT sum(x.amount) AS expenses_total
-           FROM expenses x
-          WHERE x.business_id = d.business_id AND x.expense_date = d.report_date) e ON true
-     LEFT JOIN LATERAL ( SELECT sum(
-                CASE
-                    WHEN x.direction = 'in'::text AND (EXISTS ( SELECT 1
-                       FROM sales_invoices si
-                      WHERE si.id = x.invoice_id AND si.business_id = x.business_id AND si.status <> 'void'::text)) THEN x.amount
-                    ELSE 0::numeric
-                END) AS sales_collected,
-            sum(
-                CASE
-                    WHEN x.direction = 'out'::text AND (EXISTS ( SELECT 1
-                       FROM purchase_invoices pi
-                      WHERE pi.id = x.invoice_id AND pi.business_id = x.business_id AND pi.status <> 'void'::text)) THEN x.amount
-                    ELSE 0::numeric
-                END) AS purchases_paid
-           FROM payments x
-          WHERE x.business_id = d.business_id AND x.payment_date = d.report_date) pay ON true
-     LEFT JOIN LATERAL ( SELECT sum(
-                CASE
-                    WHEN x.direction = 'in'::text THEN x.amount
-                    ELSE 0::numeric
-                END) AS cash_in,
-            sum(
-                CASE
-                    WHEN x.direction = 'out'::text THEN x.amount
-                    ELSE 0::numeric
-                END) AS cash_out
-           FROM cash_transactions x
-          WHERE x.business_id = d.business_id AND x.transaction_date = d.report_date) c ON true;;
+with (security_invoker = true)
+as
+with report_dates as (
+ select business_id,invoice_date as report_date from public.sales_invoices where status<>'void'
+ union
+ select business_id,invoice_date from public.purchase_invoices where status<>'void'
+ union
+ select business_id,expense_date from public.expenses
+ union
+ select business_id,transaction_date from public.cash_transactions
+ union
+ select p.business_id,p.payment_date from public.payments p
+ where (p.invoice_id is null or exists(
+   select 1 from public.sales_invoices si
+   where si.id=p.invoice_id and si.business_id=p.business_id and si.status<>'void'
+ ) or exists(
+   select 1 from public.purchase_invoices pi
+   where pi.id=p.invoice_id and pi.business_id=p.business_id and pi.status<>'void'
+ ))
+ and (p.sales_return_id is null or exists(
+   select 1 from public.sales_returns sr
+   where sr.id=p.sales_return_id and sr.business_id=p.business_id and sr.status<>'void'
+ ))
+)
+select d.business_id,d.report_date,
+ coalesce(s.sales_total,0)::numeric(14,2) as sales_total,
+ coalesce(pay.sales_collected,0)::numeric(14,2) as sales_collected,
+ coalesce(s.sales_due,0)::numeric(14,2) as sales_outstanding,
+ coalesce(p.purchase_total,0)::numeric(14,2) as purchases_total,
+ coalesce(pay.purchases_paid,0)::numeric(14,2) as purchases_paid,
+ coalesce(e.expenses_total,0)::numeric(14,2) as expenses_total,
+ coalesce(c.cash_in,0)::numeric(14,2) as cash_in,
+ coalesce(c.cash_out,0)::numeric(14,2) as cash_out
+from report_dates d
+left join lateral (
+ select sum(x.total) sales_total,sum(x.due_total) sales_due
+ from public.sales_invoices x
+ where x.business_id=d.business_id and x.invoice_date=d.report_date and x.status<>'void'
+) s on true
+left join lateral (
+ select sum(x.total) purchase_total
+ from public.purchase_invoices x
+ where x.business_id=d.business_id and x.invoice_date=d.report_date and x.status<>'void'
+) p on true
+left join lateral (
+ select sum(x.amount) expenses_total from public.expenses x
+ where x.business_id=d.business_id and x.expense_date=d.report_date
+) e on true
+left join lateral (
+ select
+  sum(case when x.direction='in' and x.sales_return_id is null and exists(
+   select 1 from public.sales_invoices si where si.id=x.invoice_id
+    and si.business_id=x.business_id and si.status<>'void'
+  ) then x.amount else 0 end) sales_collected,
+  sum(case when x.direction='out' and exists(
+   select 1 from public.purchase_invoices pi where pi.id=x.invoice_id
+    and pi.business_id=x.business_id and pi.status<>'void'
+  ) then x.amount else 0 end) purchases_paid
+ from public.payments x
+ where x.business_id=d.business_id and x.payment_date=d.report_date
+ and (x.sales_return_id is null or exists(
+  select 1 from public.sales_returns sr where sr.id=x.sales_return_id
+   and sr.business_id=x.business_id and sr.status<>'void'
+ ))
+) pay on true
+left join lateral (
+ select sum(case when x.direction='in' then x.amount else 0 end) cash_in,
+        sum(case when x.direction='out' then x.amount else 0 end) cash_out
+ from public.cash_transactions x
+ where x.business_id=d.business_id and x.transaction_date=d.report_date
+) c on true;
 
 do $$
 begin
