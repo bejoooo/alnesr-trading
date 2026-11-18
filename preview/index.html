@@ -823,8 +823,8 @@ async function loadReports(){
 function renderReports(from,to){
  const d=reportData,trackedStock=d.stock.filter(x=>x.has_stock_history),sales=reportSum(d.sales,"total"),purchases=reportSum(d.purchases,"total");
  const salesInvoiceIds=reportData.salesPaymentInvoiceIds||new Set(),purchaseInvoiceIds=reportData.purchasePaymentInvoiceIds||new Set();
- const salesPaid=reportSum(d.payments.filter(x=>x.direction==="in"&&((x.invoice_id&&salesInvoiceIds.has(x.invoice_id))||(x.invoice_id===null&&x.party_account_type==="customer"&&!x.sales_return_id))),"amount");
- const purchasePaid=reportSum(d.payments.filter(x=>x.direction==="out"&&((x.invoice_id&&purchaseInvoiceIds.has(x.invoice_id))||(x.invoice_id===null&&x.party_account_type==="supplier"&&!x.sales_return_id))),"amount");
+ const salesPaid=d.payments.filter(x=>((x.invoice_id&&salesInvoiceIds.has(x.invoice_id))||(x.invoice_id===null&&x.party_account_type==="customer"&&!x.sales_return_id))).reduce((sum,x)=>sum+(x.direction==="in"?1:-1)*Number(x.amount||0),0);
+ const purchasePaid=d.payments.filter(x=>((x.invoice_id&&purchaseInvoiceIds.has(x.invoice_id))||(x.invoice_id===null&&x.party_account_type==="supplier"&&!x.sales_return_id))).reduce((sum,x)=>sum+(x.direction==="out"?1:-1)*Number(x.amount||0),0);
  const expense=reportSum(d.expenses,"amount"),returns=reportSum(d.returns,"refund_total");
  const currentSalesDue=reportSum(d.sales,"due_total"),currentPurchaseDue=reportSum(d.purchases,"due_total");
  const margin=d.salesItems.reduce((a,x)=>a+Number(x.line_total||0)-Number(x.quantity||0)*Number(x.unit_cost_snapshot||0),0);
