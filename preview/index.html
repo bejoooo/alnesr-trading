@@ -268,7 +268,29 @@ main{max-width:none;margin:0;padding:24px 28px}
  .stock-legend,.low-stock-item{font-size:11px}
  .low-stock-qty{font-size:11px}
 }
- .date-time{display:flex;flex-direction:column;gap:2px;white-space:nowrap}.date-time small{font-size:11px;color:var(--muted,#82909d);direction:ltr;text-align:right}</style><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js" onerror="this.onerror=null;this.src='https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js'"></script><script>window.ALNESR_SUPABASE_URL="https://hxwcjbmlxbqrurrmjbpf.supabase.co";window.ALNESR_SUPABASE_ANON_KEY="sb_publishable_cCvZKLiPcIxj9bq__X3_sg_RFWDWzYH";</script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script></head>
+ .date-time{display:flex;flex-direction:column;gap:2px;white-space:nowrap}.date-time small{font-size:11px;color:var(--muted,#82909d);direction:ltr;text-align:right}</style><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js" onerror="this.onerror=null;this.src='https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js'"></script><script>window.ALNESR_SUPABASE_URL="https://hxwcjbmlxbqrurrmjbpf.supabase.co";window.ALNESR_SUPABASE_ANON_KEY="sb_publishable_cCvZKLiPcIxj9bq__X3_sg_RFWDWzYH";</script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><style id="dashboard-icon-alignment-fix">
+/* One icon per tile: remove the separately positioned foreground icon */
+#dashboardStats .stat:before{content:none!important;display:none!important}
+#dashboardStats .stat:after{
+ content:"💳"!important;display:grid!important;place-items:center!important;
+ position:absolute!important;left:17px!important;top:20px!important;
+ width:34px!important;height:34px!important;border-radius:11px!important;
+ z-index:2!important;font-size:19px!important;line-height:1!important;
+}
+#dashboardStats .stat:nth-child(1):after{content:"💸"!important;background:#f2edff!important}
+#dashboardStats .stat:nth-child(2):after{content:"🛍️"!important;background:#e9f8f0!important}
+#dashboardStats .stat:nth-child(3):after{content:"📦"!important;background:#fff3e6!important}
+#dashboardStats .stat:nth-child(4):after{content:"💰"!important;background:#eaf1ff!important}
+#dashboardStats .stat:nth-child(5):after{content:"📲"!important;background:#e9f8ef!important}
+#dashboardStats .stat:nth-child(6):after{content:"🏦"!important;background:#f0edff!important}
+#dashboardStats .stat:nth-child(7):after{content:"👛"!important;background:#fff1e5!important}
+#dashboardStats .stat:nth-child(8):after{content:"💳"!important;background:#e7f7f7!important}
+#dashboardStats .stat:nth-child(9):after{content:"💰"!important;background:#fff5d9!important}
+@media(max-width:760px){
+ #dashboardStats .stat:after{left:10px!important;top:13px!important;width:27px!important;height:27px!important;font-size:16px!important}
+}
+</style>
+</head>
 <body><div id="previewBanner" style="background:#fff3cd;color:#664d03;text-align:center;padding:9px 12px;font:13px Tahoma,Arial,sans-serif;border-bottom:1px solid #ffecb5">نسخة معاينة v1.2.10 — للاختبار فقط — قاعدة بيانات منفصلة ولا تستخدم بيانات حقيقية</div><header><div><h1>النسر للتجارة</h1><p>نظام إدارة النشاط</p></div><div id="connection" class="status">غير مُعدّ للاتصال</div></header><main>
 <section id="setupNotice" class="panel warning"><h2>إعداد الاتصال بقاعدة البيانات</h2><p>الواجهة جاهزة مبدئيًا، لكنها لن تتصل ببيانات النشاط قبل إنشاء مشروع Supabase وإضافة رابط المشروع ومفتاح anon العام في ملف app/config.js.</p><p>لا تضع أبدًا مفتاح service_role أو أي كلمة مرور داخل هذا الملف.</p></section>
 <section id="authLoading" class="panel hidden" role="status" aria-live="polite">جارٍ التحقق من جلسة الدخول...</section><section id="authPanel" class="panel hidden"><h2>تسجيل الدخول</h2><form id="loginForm"><label>البريد الإلكتروني<input name="email" type="email" autocomplete="username" required></label><label>كلمة المرور<input name="password" type="password" autocomplete="current-password" required></label><button type="submit">تسجيل الدخول</button></form><form id="signupForm" class="secondary-form"><h3>إنشاء حساب موظف</h3><p class="muted">أنشئ حسابك أولًا، ثم أرسل بريدك الإلكتروني لمالك نشاط النسر ليضيفك ويحدد صلاحياتك. إنشاء الحساب وحده لا يمنحك الوصول لأي نشاط.</p><label>البريد الإلكتروني<input name="email" type="email" required></label><label>كلمة المرور (8 أحرف على الأقل)<input name="password" type="password" minlength="8" required></label><button type="submit" class="secondary">إنشاء حساب الموظف</button></form><p id="authMessage" role="status"></p></section>
