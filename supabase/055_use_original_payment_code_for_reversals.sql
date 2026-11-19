@@ -171,4 +171,5 @@ select
     'مرتجع مشتريات للمورد'::text as description,
     coalesce(r.posted_at, r.created_at) as entry_timestamp
 from public.purchase_returns r
+join public.parties p on p.id = r.supplier_id and p.business_id = r.business_id
 where r.status = 'posted'::text;
