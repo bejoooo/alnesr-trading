@@ -758,7 +758,7 @@ async function loadTransfersModule(){
  const balances={cash:Number(cashRes.data?.balance||0),instapay:0,bank_transfer:0,mobile_wallet:0,other:0};
  (payRes.data||[]).forEach(p=>{const k=String(p.method||"").toLowerCase();if(k in balances&&k!=="cash")balances[k]+=(p.direction==="in"?1:-1)*Number(p.amount||0);});
  const rows=transRes.data||[];
- rows.forEach(t=>{if(t.source_method in balances)balances[t.source_method]-=Number(t.amount||0);if(t.destination_method in balances)balances[t.destination_method]+=Number(t.amount||0);});
+ rows.forEach(t=>{if(t.source_method in balances&&t.source_method!=="cash")balances[t.source_method]-=Number(t.amount||0);if(t.destination_method in balances&&t.destination_method!=="cash")balances[t.destination_method]+=Number(t.amount||0);});
  $("transferBalanceCards").innerHTML=TREASURY_METHODS.map(([k,label,emoji])=>'<div class="stat"><strong>'+esc(money(balances[k]))+'</strong><span>'+emoji+' '+esc(label)+'</span></div>').join("")+'<div class="stat"><strong>'+esc(money(Object.values(balances).reduce((a,b)=>a+b,0)))+'</strong><span>💰 إجمالي رصيد الخزنة</span></div>';
  $("treasuryTransferRows").innerHTML=rows.map(t=>'<tr><td>'+esc(t.transfer_date)+'</td><td>'+esc(treasuryMethodLabel(t.source_method))+'</td><td>'+esc(treasuryMethodLabel(t.destination_method))+'</td><td>'+esc(money(t.amount))+'</td><td>'+esc(t.notes||"—")+'</td></tr>').join("")||'<tr><td colspan="5">لا توجد تحويلات مسجلة.</td></tr>';
  message("globalMessage","");
