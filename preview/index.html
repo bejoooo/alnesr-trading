@@ -223,6 +223,12 @@ main{max-width:none;margin:0;padding:24px 28px}
 #moduleShell button[id^="cancel"],#moduleShell button[id^="close"],#moduleShell button[id^="remove"],#moduleShell button[id^="delete"]{background:#fff0ef;color:#a13e38;border:1px solid #f1d4d1;box-shadow:none}
 #moduleShell button.refresh-dashboard{background:#e8f1fb!important;color:#285b91!important;border:1px solid #d3e3f5!important}
 
+/* Fix dashboard balance icons: render one centered icon inside its colored tile */
+#dashboardStats .stat:before{content:none!important;display:none!important}
+#dashboardStats .stat:after{display:grid;place-items:center;z-index:1;font-size:19px;line-height:1}
+@media(max-width:760px){
+ #dashboardStats .stat:after{display:grid;place-items:center;font-size:16px;line-height:1}
+}
 /* Dashboard analytics redesign */
 #dashboardModule{display:block;min-width:0}.dashboard-overview-grid{margin-bottom:22px}
 .dashboard-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:0}
