@@ -268,7 +268,15 @@ main{max-width:none;margin:0;padding:24px 28px}
  .stock-legend,.low-stock-item{font-size:11px}
  .low-stock-qty{font-size:11px}
 }
- .date-time{display:flex;flex-direction:column;gap:2px;white-space:nowrap}.date-time small{font-size:11px;color:var(--muted,#82909d);direction:ltr;text-align:right}</style><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js" onerror="this.onerror=null;this.src='https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js'"></script><script>window.ALNESR_SUPABASE_URL="https://hxwcjbmlxbqrurrmjbpf.supabase.co";window.ALNESR_SUPABASE_ANON_KEY="sb_publishable_cCvZKLiPcIxj9bq__X3_sg_RFWDWzYH";</script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><style id="dashboard-icon-alignment-fix">
+ .date-time{display:flex;flex-direction:column;gap:2px;white-space:nowrap}.date-time small{font-size:11px;color:var(--muted,#82909d);direction:ltr;text-align:right}
+/* Table pagination: 25 rows per page */
+.table-pagination{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:12px 4px;color:#71818a;font-size:12px}
+.table-pagination .pagination-pages{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.table-pagination button{min-width:34px;padding:7px 9px;border-radius:8px;background:#edf2f6;color:#294253;font-size:12px}
+.table-pagination button[aria-current="page"]{background:#3977d5;color:#fff}
+.table-pagination button:disabled{opacity:.4;cursor:not-allowed}
+@media(max-width:600px){.table-pagination{justify-content:center}.table-pagination .pagination-summary{width:100%;text-align:center}}
+</style><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js" onerror="this.onerror=null;this.src='https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js'"></script><script>window.ALNESR_SUPABASE_URL="https://hxwcjbmlxbqrurrmjbpf.supabase.co";window.ALNESR_SUPABASE_ANON_KEY="sb_publishable_cCvZKLiPcIxj9bq__X3_sg_RFWDWzYH";</script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><style id="dashboard-icon-alignment-fix">
 /* One icon per tile: remove the separately positioned foreground icon */
 #dashboardStats .stat:before{content:none!important;display:none!important}
 #dashboardStats .stat:after{
@@ -1217,6 +1225,36 @@ async function restoreBusinessBackup(){
  await loadWorkspace();
 }
 
+})();
+
+
+/* Automatic table pagination — 25 visible rows */
+(()=>{
+ const PAGE_SIZE=25, pageByTable=new WeakMap(), pagerByTable=new WeakMap();
+ const getRows=tb=>Array.from(tb.rows).filter(r=>!r.dataset.paginationControl);
+ function draw(tb){
+  if(!tb||!tb.isConnected)return;
+  const rows=getRows(tb),total=rows.length,wrap=tb.closest(".table-wrap");
+  if(!wrap)return;
+  let pager=pagerByTable.get(tb);
+  if(total<=PAGE_SIZE){rows.forEach(r=>r.hidden=false);if(pager)pager.remove();pagerByTable.delete(tb);pageByTable.set(tb,0);return;}
+  if(!pager){pager=document.createElement("div");pager.className="table-pagination";wrap.insertAdjacentElement("afterend",pager);pagerByTable.set(tb,pager);}
+  const pages=Math.ceil(total/PAGE_SIZE),page=Math.min(pageByTable.get(tb)||0,pages-1);
+  pageByTable.set(tb,page);
+  rows.forEach((r,i)=>{r.hidden=i<page*PAGE_SIZE||i>=(page+1)*PAGE_SIZE;});
+  const start=page*PAGE_SIZE+1,end=Math.min(total,(page+1)*PAGE_SIZE);
+  const left=document.createElement("span");left.className="pagination-summary";left.textContent="عرض "+start+"–"+end+" من "+total+" سجل";
+  const nav=document.createElement("div");nav.className="pagination-pages";
+  const add=(label,target,disabled,current=false)=>{const b=document.createElement("button");b.type="button";b.textContent=label;b.disabled=disabled;if(current)b.setAttribute("aria-current","page");b.addEventListener("click",()=>{pageByTable.set(tb,target);draw(tb);});nav.appendChild(b);};
+  add("السابق",Math.max(0,page-1),page===0);
+  let first=Math.max(0,Math.min(page-2,pages-5)),last=Math.min(pages,first+5);
+  for(let i=first;i<last;i++)add(String(i+1),i,false,i===page);
+  add("التالي",Math.min(pages-1,page+1),page===pages-1);
+  pager.replaceChildren(left,nav);
+ }
+ const observer=new MutationObserver(records=>{const seen=new Set();for(const rec of records){const tb=rec.target.nodeType===1?(rec.target.matches("tbody")?rec.target:rec.target.closest("tbody")):null;if(tb&&!seen.has(tb)){seen.add(tb);draw(tb);}}});
+ document.querySelectorAll("tbody").forEach(tb=>{observer.observe(tb,{childList:true});draw(tb);});
+ window.addEventListener("resize",()=>document.querySelectorAll("tbody").forEach(draw));
 })();
 
 </script><!-- trigger GitHub Pages rebuild for preview -->
