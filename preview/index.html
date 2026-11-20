@@ -5,7 +5,7 @@
 .sale-line{border-right:3px solid #9aadb8}.sale-line .form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#saleDetails table{min-width:650px}
 .return-line{border-right:3px solid #b58a55}.return-line input:disabled{background:#f2f5f7;color:#667984}
 
-.cash-actions{flex-wrap:wrap}.cash-actions button{min-width:145px}#cashStats .stat strong{font-size:20px}
+.cash-actions{flex-wrap:wrap}.cash-actions button{min-width:145px}.cash-actions button.cash-action-active{background:#3977d5!important;color:#fff!important;box-shadow:0 5px 14px #3977d540!important}#cashStats .stat strong{font-size:20px}
 .transfer-balance-grid{grid-template-columns:repeat(auto-fit,minmax(155px,1fr));margin-bottom:16px}
 #transferBalanceCards .stat{border-top:3px solid #d7e3ef}
 #dashboardStats .stat:before{content:"";position:absolute;left:25px;top:28px;z-index:1;font-size:23px;line-height:1}
@@ -803,7 +803,7 @@ $("expenseForm").addEventListener("submit",saveExpense);
 $("openingForm").addEventListener("submit",saveOpeningBalance);
 $("openingParty").addEventListener("change",updateOpeningPartySide);
 $("partyOpeningForm").addEventListener("submit",savePartyOpeningBalance);
-document.querySelectorAll("[data-cash-cancel]").forEach(b=>b.addEventListener("click",()=>["depositEditor","withdrawalEditor","expenseEditor","openingEditor"].forEach(id=>show(id,false))));
+document.querySelectorAll("[data-cash-cancel]").forEach(b=>b.addEventListener("click",()=>{["depositEditor","withdrawalEditor","expenseEditor","openingEditor"].forEach(id=>show(id,false));["openDeposit","openWithdrawal","openExpense","openOpening"].forEach(id=>{const button=$(id);button.classList.remove("cash-action-active");button.classList.add("secondary");});}));
 $("treasuryTransferForm").elements.transfer_date.value=today();
 
 $("newReturnBtn").addEventListener("click",openReturnForm);
@@ -889,7 +889,7 @@ async function saveCustomerPayment(e){e.preventDefault();if(!permission("payment
 
 
 let cashTransactions=[],expenseRows=[];
-function openCashEditor(id,perm){if(!permission(perm))return message("globalMessage","ليس لديك الصلاحية المطلوبة لهذه العملية.");["depositEditor","withdrawalEditor","expenseEditor","openingEditor"].forEach(x=>show(x,false));const f=$(id).querySelector("form");f.reset();const dateField=f.elements.transaction_date||f.elements.expense_date||f.elements.as_of_date;if(dateField)dateField.value=today();show(id,true);$(id).scrollIntoView({behavior:"smooth",block:"start"});}
+function openCashEditor(id,perm){if(!permission(perm))return message("globalMessage","ليس لديك الصلاحية المطلوبة لهذه العملية.");["depositEditor","withdrawalEditor","expenseEditor","openingEditor"].forEach(x=>show(x,false));const activeButton={depositEditor:"openDeposit",withdrawalEditor:"openWithdrawal",expenseEditor:"openExpense",openingEditor:"openOpening"}[id];["openDeposit","openWithdrawal","openExpense","openOpening"].forEach(buttonId=>{const button=$(buttonId),active=buttonId===activeButton;button.classList.toggle("cash-action-active",active);button.classList.toggle("secondary",!active);});const f=$(id).querySelector("form");f.reset();const dateField=f.elements.transaction_date||f.elements.expense_date||f.elements.as_of_date;if(dateField)dateField.value=today();show(id,true);$(id).scrollIntoView({behavior:"smooth",block:"start"});}
 const TREASURY_METHODS=[["cash","الخزنة النقدية","💵"],["instapay","إنستاباي","📲"],["bank_transfer","التحويل البنكي","🏦"],["mobile_wallet","المحفظة الإلكترونية","👛"],["other","أخرى","💳"]];
 function treasuryMethodLabel(method){return TREASURY_METHODS.find(x=>x[0]===method)?.[1]||method;}
 async function loadTransfersModule(){
