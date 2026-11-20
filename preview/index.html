@@ -1065,7 +1065,7 @@ function renderReports(from,to){
   parts.push('<div class="subpanel"><h4>التحصيلات والمدفوعات</h4><p>'+paymentLabels.join(" · ")+' · عدد الدفعات الظاهرة حسب صلاحياتك: '+visibleReportPayments().length+'</p><p class="muted">مجمّعة حسب تاريخ الدفع الفعلي، وليس تاريخ الفاتورة.</p></div>');
  }
  if(permission("expenses.view"))parts.push('<div class="subpanel"><h4>المصروفات</h4><p>عدد العمليات: '+d.expenses.length+' · الإجمالي: '+reportMoney(expense)+'</p></div>');
- if(permission("cash.view"))parts.push('<div class="subpanel"><h4>حركة الخزنة</h4><p>داخل: '+reportMoney(reportSum(d.cash.filter(x=>x.direction==="in"),"amount"))+' · خارج: '+reportMoney(reportSum(d.cash.filter(x=>x.direction==="out"),"amount"))+' · عدد الحركات: '+d.cash.length+'</p><p class="muted">هذا القسم يعرض اتجاه كل حركة خزنة كما سُجلت، بما فيها التحويلات الداخلية، دون قلب اتجاه الداخل والخارج.</p></div>');
+
  if(permission("cash.view")&&permission("payments.view"))parts.push('<div class="subpanel"><h4>إجمالي حركة الأموال بكل وسائل الدفع</h4><p>إجمالي الداخل: '+reportMoney(operatingIn)+' · إجمالي الخارج: '+reportMoney(operatingOut)+'</p><p class="muted">يشمل الدفعات والحركات اليدوية على جميع وسائل الدفع، ويستبعد التحويلات الداخلية بين الأرصدة ويمنع تكرار حركة الخزنة المرتبطة بدفعة.</p></div>');
  if(permission("cash.view")&&permission("payments.view"))parts.push('<div class="subpanel"><h4>تحويلات الأرصدة بين وسائل الدفع</h4><p>عدد التحويلات: '+(d.treasuryTransfers||[]).length+' · إجمالي قيمة التحويلات: '+reportMoney(reportSum(d.treasuryTransfers||[],"amount"))+'</p><p class="muted">التحويلات تظهر هنا كسجل مستقل ولا تدخل ضمن إجمالي الداخل أو الخارج التشغيلي.</p></div>');
  if(permission("sales.view"))parts.push('<div class="subpanel"><h4>المرتجعات</h4><p>عدد المرتجعات: '+d.returns.length+' · قيمة الردود: '+reportMoney(returns)+'</p></div>');
@@ -1090,7 +1090,7 @@ function exportReportsExcel(){
   add("بنود_المشتريات",map(d.purchaseItems,x=>({رقم_الفاتورة:(d.purchases.find(i=>i.id===x.invoice_id)||{}).invoice_no,المنتج:x.product_name_snapshot,الكمية:x.quantity,سعر_الوحدة:x.unit_price,الخصم_الموزع:x.allocated_discount,صافي_البند:x.net_line_total,تكلفة_الوحدة_النهائية:x.unit_landed_cost})));
  }
  if(permission("payments.view"))add("الدفعات",map(visibleReportPayments(),x=>({التاريخ:x.payment_date,الاتجاه:x.direction==="in"?"مقبوض":"مدفوع",المبلغ:x.amount,الطريقة:x.method,المرجع:x.reference,ملاحظات:x.notes,معرف_الفاتورة:x.invoice_id,معرف_الحساب:x.party_id})));
- if(permission("cash.view"))add("حركات_الخزنة",map(d.cash,x=>({التاريخ:x.transaction_date,الاتجاه:x.direction==="in"?"داخل":"خارج",وسيلة_الدفع:x.account_method||"cash",النوع:x.transaction_type,المبلغ:x.amount,السبب:x.reason,معرف_التحويل_الداخلي:x.treasury_transfer_id||"",ملاحظات:x.notes})));
+
  if(permission("cash.view")&&permission("payments.view")){
   add("تحويلات_الأرصدة",map(d.treasuryTransfers||[],x=>({التاريخ:x.transfer_date,كود_التحويل:x.transfer_code,من:x.source_method,إلى:x.destination_method,المبلغ:x.amount,ملاحظات:x.notes})));
   const moneyRows=buildOperatingMoneyRows(d.payments,d.cash,from,to);
