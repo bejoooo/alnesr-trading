@@ -432,7 +432,7 @@ main{max-width:none;margin:0;padding:24px 28px}
   <label class="wide">ملاحظات<textarea name="notes" rows="2" placeholder="تفاصيل اختيارية عن التحويل"></textarea></label>
   <div class="wide actions"><button type="submit" id="saveTreasuryTransfer">تنفيذ التحويل</button></div>
  </form><p class="muted">سيتم رفض التحويل إذا كان رصيد الحساب المصدر غير كافٍ أو إذا اخترت نفس الحساب في الطرفين.</p></div>
- <div class="subpanel"><h4>سجل تحويلات الأرصدة</h4><div class="table-wrap"><table><thead><tr><th>التاريخ / الوقت</th><th>كود التحويل</th><th>من</th><th>إلى</th><th>المبلغ</th><th>ملاحظات</th></tr></thead><tbody id="treasuryTransferRows"><tr><td colspan="6">لا توجد تحويلات محمّلة.</td></tr></tbody></table></div></div>
+ <div class="subpanel"><h4>سجل تحويلات الأرصدة</h4><div class="table-wrap"><table><thead><tr><th>التاريخ / الوقت</th><th>كود التحويل</th><th>من</th><th>إلى</th><th>المبلغ</th><th>ملاحظات</th><th>الإجراء</th></tr></thead><tbody id="treasuryTransferRows"><tr><td colspan="6">لا توجد تحويلات محمّلة.</td></tr></tbody></table></div></div>
 </section>
 <section id="reportsModule" class="hidden">
  <div class="section-head"><div><h3>التقارير والتصدير</h3><p class="muted">تقارير حسب تاريخ كل حركة، وتظهر الأقسام التي تسمح بها صلاحيات حسابك فقط.</p></div><button type="button" id="exportReports" class="secondary">تصدير Excel شامل</button></div>
@@ -898,7 +898,7 @@ async function loadTransfersModule(){
  const [cashRes,payRes,transRes,manualRes]=await Promise.all([
   client.from("cash_balances").select("balance").eq("business_id",activeBusinessId).maybeSingle(),
   fetchAllRows(()=>client.from("payments").select("amount,direction,method").eq("business_id",activeBusinessId).order("id",{ascending:true})),
-  fetchAllRows(()=>client.from("treasury_transfers").select("id,transfer_date,transfer_code,source_method,destination_method,amount,notes,created_at").eq("business_id",activeBusinessId).order("transfer_date",{ascending:false}).order("created_at",{ascending:false}).order("id",{ascending:false})),
+  fetchAllRows(()=>client.from("treasury_transfers").select("id,transfer_date,transfer_code,source_method,destination_method,amount,notes,created_at,reversal_of_transfer_id").eq("business_id",activeBusinessId).order("transfer_date",{ascending:false}).order("created_at",{ascending:false}).order("id",{ascending:false})),
   fetchAllRows(()=>client.from("cash_transactions").select("account_method,direction,amount,payment_id,treasury_transfer_id").eq("business_id",activeBusinessId).neq("account_method","cash").is("payment_id",null).is("treasury_transfer_id",null).order("id",{ascending:true}))
  ]);
  if(cashRes.error)return fail(cashRes.error);if(payRes.error)return fail(payRes.error);if(transRes.error)return fail(transRes.error);if(manualRes.error)return fail(manualRes.error);
@@ -907,8 +907,24 @@ async function loadTransfersModule(){
  const rows=transRes.data||[];
  rows.forEach(t=>{if(t.source_method in balances&&t.source_method!=="cash")balances[t.source_method]-=Number(t.amount||0);if(t.destination_method in balances&&t.destination_method!=="cash")balances[t.destination_method]+=Number(t.amount||0);});(manualRes.data||[]).forEach(t=>{const k=String(t.account_method||"").toLowerCase();if(k in balances)balances[k]+=(t.direction==="in"?1:-1)*Number(t.amount||0);});
  $("transferBalanceCards").innerHTML=TREASURY_METHODS.map(([k,label,emoji])=>'<div class="stat"><strong>'+esc(money(balances[k]))+'</strong><span>'+emoji+' '+esc(label)+'</span></div>').join("")+'<div class="stat"><strong>'+esc(money(Object.values(balances).reduce((a,b)=>a+b,0)))+'</strong><span>💰 إجمالي رصيد الخزنة</span></div>';
- $("treasuryTransferRows").innerHTML=rows.map(t=>'<tr><td>'+dateTimeCell(t.transfer_date,t.created_at)+'</td><td>'+esc(t.transfer_code||"—")+'</td><td>'+esc(treasuryMethodLabel(t.source_method))+'</td><td>'+esc(treasuryMethodLabel(t.destination_method))+'</td><td>'+esc(money(t.amount))+'</td><td>'+esc(t.notes||"—")+'</td></tr>').join("")||'<tr><td colspan="6">لا توجد تحويلات مسجلة.</td></tr>';
+ const reversedTransferIds=new Set(rows.map(t=>t.reversal_of_transfer_id).filter(Boolean));
+ $("treasuryTransferRows").innerHTML=rows.map(t=>'<tr><td>'+dateTimeCell(t.transfer_date,t.created_at)+'</td><td>'+esc(t.transfer_code||"—")+(t.reversal_of_transfer_id?' <span class="muted">· عكس</span>':"")+(reversedTransferIds.has(t.id)?' <span class="muted">· تم عكسه</span>':"")+'</td><td>'+esc(treasuryMethodLabel(t.source_method))+'</td><td>'+esc(treasuryMethodLabel(t.destination_method))+'</td><td>'+esc(money(t.amount))+'</td><td>'+esc(t.notes||"—")+'</td><td>'+(!t.reversal_of_transfer_id&&!reversedTransferIds.has(t.id)?'<button type="button" class="secondary" data-reverse-transfer="'+esc(t.id)+'">عكس المعاملة</button>':'—')+'</td></tr>').join("")||'<tr><td colspan="7">لا توجد تحويلات مسجلة.</td></tr>';
+ $("treasuryTransferRows").querySelectorAll("[data-reverse-transfer]").forEach(b=>b.addEventListener("click",()=>reverseTreasuryTransfer(b.dataset.reverseTransfer)));
  message("globalMessage","");
+}
+async function reverseTreasuryTransfer(transferId){
+ if(!transferId||!permission("cash.create")||!permission("cash.view")||!permission("payments.view"))return message("globalMessage","ليس لديك صلاحية عكس تحويل الأرصدة.");
+ if(!confirm("سيتم تسجيل تحويل عكسي بنفس المبلغ بين نفس الوسيلتين في الاتجاه المعاكس، مع الاحتفاظ بالتحويل الأصلي. لا يمكن عكس التحويل مرتين. هل تريد المتابعة؟"))return;
+ const buttons=$("treasuryTransferRows").querySelectorAll("[data-reverse-transfer]");
+ buttons.forEach(b=>{if(b.dataset.reverseTransfer===transferId)b.disabled=true;});
+ message("globalMessage","جارٍ عكس التحويل وتحديث الرصيدين...");
+ try{
+  const {error}=await client.rpc("reverse_treasury_transfer",{p_business_id:activeBusinessId,p_transfer_id:transferId});
+  if(error)throw error;
+  message("globalMessage","تم عكس التحويل بنجاح، وتم تسجيل الحركة العكسية وتحديث الرصيدين.");
+  await loadTransfersModule();
+  await loadDashboardModule();
+ }catch(err){fail(err);await loadTransfersModule();}
 }
 async function saveTreasuryTransfer(e){
  e.preventDefault();if(!permission("cash.create")||!permission("cash.view")||!permission("payments.view"))return message("globalMessage","ليس لديك صلاحية تحويل الأرصدة.");
