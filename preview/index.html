@@ -592,7 +592,7 @@ async function saveProduct(e){
  e.preventDefault();
  const f=new FormData(e.currentTarget),id=String(f.get("id")||"");
  if(id?!permission("products.edit"):!permission("products.create"))return message("globalMessage","ليس لديك صلاحية حفظ هذا المنتج.");
- const existing=products.find(x=>x.id===id),file=f.get("image_file");
+ const existing=products.find(x=>x.id===id),file=f.get("image_file"),removeImage=f.get("remove_image")==="true";
  const p={business_id:activeBusinessId,name:String(f.get("name")).trim(),code:String(f.get("code")||"").trim()||null,category:String(f.get("category")||"").trim()||null,unit:String(f.get("unit")||"قطعة").trim(),wholesale_price:Number(f.get("wholesale_price")||0),retail_price:Number(f.get("retail_price")||0),minimum_stock:Number(f.get("minimum_stock")||0),warranty:String(f.get("warranty")||"").trim()||null,warranty_provider:String(f.get("warranty_provider")||"").trim()||null,specs:String(f.get("specs")||"").trim()||null};
  if(Object.values(p).some(v=>typeof v==="number"&&(!Number.isFinite(v)||v<0)))return message("globalMessage","تأكد أن الأسعار وحد التنبيه أرقام صحيحة غير سالبة.");
  if(file&&file.size&&(!["image/jpeg","image/png","image/webp"].includes(file.type)||file.size>5*1024*1024))return message("globalMessage","الصورة يجب أن تكون JPG أو PNG أو WebP ولا يتجاوز حجمها 5 ميجابايت.");
@@ -604,11 +604,11 @@ async function saveProduct(e){
   const {error:upErr}=await client.storage.from("product-images").upload(uploadedPath,file,{contentType:file.type,upsert:false});
   if(upErr)return fail(upErr);
   p.image_path=uploadedPath;
- }else if(existing?.image_path&&f.elements.remove_image.value!=="true")p.image_path=existing.image_path;else if(f.elements.remove_image.value==="true")p.image_path=null;
+ }else if(existing?.image_path&&!removeImage)p.image_path=existing.image_path;else if(removeImage)p.image_path=null;
  if(!id)p.id=productId;
  const updatePayload={...p};delete updatePayload.business_id;const result=id?await client.from("products").update(updatePayload).eq("id",id).eq("business_id",activeBusinessId):await client.from("products").insert(p);
  if(result.error){if(uploadedPath)await client.storage.from("product-images").remove([uploadedPath]);return fail(result.error);}
- if(existing?.image_path&&(uploadedPath||f.elements.remove_image.value==="true"))await client.storage.from("product-images").remove([existing.image_path]);
+ if(existing?.image_path&&(uploadedPath||removeImage)){const {error:removeErr}=await client.storage.from("product-images").remove([existing.image_path]);if(removeErr)console.warn("Old product image cleanup failed:",removeErr.message);}
  show("productEditor",false);message("globalMessage","تم حفظ بيانات المنتج والصورة دون تغيير كمية المخزون.");await loadProducts();
 }
 function previewProductImage(e){const file=e.target.files&&e.target.files[0];if(!file)return;if(!["image/jpeg","image/png","image/webp"].includes(file.type)||file.size>5*1024*1024){e.target.value="";return message("globalMessage","اختر صورة JPG أو PNG أو WebP لا يتجاوز حجمها 5 ميجابايت.");}$("productForm").elements.remove_image.value="false";const url=URL.createObjectURL(file);$("productImagePreview").src=url;show("productImagePreview",true);show("clearProductImage",true);}
