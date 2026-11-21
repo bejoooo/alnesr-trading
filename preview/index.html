@@ -608,7 +608,7 @@ async function saveProduct(e){
  if(!id)p.id=productId;
  const updatePayload={...p};delete updatePayload.business_id;const result=id?await client.from("products").update(updatePayload).eq("id",id).eq("business_id",activeBusinessId):await client.from("products").insert(p);
  if(result.error){if(uploadedPath)await client.storage.from("product-images").remove([uploadedPath]);return fail(result.error);}
- if(existing?.image_path&&(uploadedPath||removeImage)){const {error:removeErr}=await client.storage.from("product-images").remove([existing.image_path]);if(removeErr)console.warn("Old product image cleanup failed:",removeErr.message);}
+ if(existing?.image_path&&(uploadedPath||removeImage)){client.storage.from("product-images").remove([existing.image_path]).then(({error:removeErr})=>{if(removeErr)console.warn("Old product image cleanup failed:",removeErr.message);}).catch(removeErr=>console.warn("Old product image cleanup failed:",removeErr));}
  show("productEditor",false);message("globalMessage","تم حفظ بيانات المنتج والصورة دون تغيير كمية المخزون.");await loadProducts();
 }
 function previewProductImage(e){const file=e.target.files&&e.target.files[0];if(!file)return;if(!["image/jpeg","image/png","image/webp"].includes(file.type)||file.size>5*1024*1024){e.target.value="";return message("globalMessage","اختر صورة JPG أو PNG أو WebP لا يتجاوز حجمها 5 ميجابايت.");}$("productForm").elements.remove_image.value="false";const url=URL.createObjectURL(file);$("productImagePreview").src=url;show("productImagePreview",true);show("clearProductImage",true);}
