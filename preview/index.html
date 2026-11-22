@@ -518,7 +518,7 @@ async function saveBusinessSettings(e){
  if(!m||!["owner","admin"].includes(m.role))return message("globalMessage","ليس لديك صلاحية تعديل بيانات النشاط.");
  const name=String(f.get("name")||"").trim();if(!name)return message("globalMessage","اسم النشاط مطلوب.");
  const btn=form.querySelector('button[type="submit"]');btn.disabled=true;message("globalMessage","جارٍ حفظ بيانات النشاط...");
- try{const {error}=await client.from("businesses").update({name,phone:String(f.get("phone")||"").trim()||null,tagline:String(f.get("tagline")||"").trim()||null,address:String(f.get("address")||"").trim()||null}).eq("id",activeBusinessId);if(error)throw error;await loadWorkspace();message("globalMessage","تم حفظ بيانات النشاط.");}catch(err){fail(err);}finally{btn.disabled=false;}
+ try{const {data:updated,error}=await client.from("businesses").update({name,phone:String(f.get("phone")||"").trim()||null,tagline:String(f.get("tagline")||"").trim()||null,address:String(f.get("address")||"").trim()||null}).eq("id",activeBusinessId).select("id,name,phone,address,tagline").single();if(error)throw error;const current=memberships.find(x=>x.business_id===activeBusinessId);if(current)current.businesses=Array.isArray(current.businesses)?[updated]:updated;const option=Array.from($("businessSelect").options).find(x=>x.value===activeBusinessId);if(option)option.textContent=updated.name||"نشاط";renderMembership();message("globalMessage","تم حفظ بيانات النشاط.");}catch(err){fail(err);}finally{btn.disabled=false;}
 }
 async function loadBusinessMembers(){
  const {data,error}=await client.rpc("list_business_members",{p_business_id:activeBusinessId});
