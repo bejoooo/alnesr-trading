@@ -1115,6 +1115,7 @@ async function loadReports(){
   const add=(key,allowed,table,fields,dateField,extra)=>{if(allowed)jobs.push(fetchReportRows(table,fields,dateField,from,to,extra).then(v=>{reportData[key]=v;}));else reportData[key]=[];};
   add("sales",permission("sales.view"),"sales_invoices","id,invoice_no,customer_id,customer_name_snapshot,invoice_date,subtotal,discount,total,paid_total,due_total,status","invoice_date",q=>q.neq("status","void"));
   add("purchases",permission("purchases.view"),"purchase_invoices","id,invoice_no,supplier_id,supplier_name_snapshot,invoice_date,subtotal,supplier_discount,total,paid_total,due_total,status","invoice_date",q=>q.neq("status","void"));
+  add("purchaseReturns",permission("purchases.view"),"purchase_returns","id,return_no,purchase_invoice_id,supplier_id,return_date,total,credit_generated_total,status","return_date",q=>q.eq("status","posted"));
   add("payments",permission("payments.view"),"payments","id,party_id,invoice_id,sales_return_id,reversal_of_payment_id,party_account_type,direction,amount,payment_date,method,reference,notes","payment_date");
   add("cash",permission("cash.view"),"cash_transactions","id,transaction_date,direction,transaction_type,amount,party_id,invoice_id,payment_id,treasury_transfer_id,account_method,reason,notes","transaction_date");
   add("treasuryTransfers",permission("cash.view")&&permission("payments.view"),"treasury_transfers","id,transfer_date,transfer_code,source_method,destination_method,amount,notes,created_at","transfer_date");
@@ -1165,7 +1166,7 @@ function renderReports(from,to){
  const salesInvoiceIds=reportData.salesPaymentInvoiceIds||new Set(),purchaseInvoiceIds=reportData.purchasePaymentInvoiceIds||new Set();
  const salesPaid=d.payments.filter(x=>((x.invoice_id&&salesInvoiceIds.has(x.invoice_id))||(x.invoice_id===null&&x.party_account_type==="customer"&&!x.sales_return_id))).reduce((sum,x)=>sum+(x.direction==="in"?1:-1)*Number(x.amount||0),0);
  const purchasePaid=d.payments.filter(x=>((x.invoice_id&&purchaseInvoiceIds.has(x.invoice_id))||(x.invoice_id===null&&x.party_account_type==="supplier"&&!x.sales_return_id))).reduce((sum,x)=>sum+(x.direction==="out"?1:-1)*Number(x.amount||0),0);
- const expense=reportSum(d.expenses,"amount"),returns=reportSum(d.returns,"refund_total");
+ const expense=reportSum(d.expenses,"amount"),returns=reportSum(d.returns,"refund_total"),purchaseReturnsTotal=reportSum(d.purchaseReturns,"total");
  const operatingCashRows=buildOperatingMoneyRows(d.payments,d.cash,from,to);
  const operatingIn=operatingCashRows.filter(x=>x.direction==="in").reduce((sum,x)=>sum+Number(x.amount||0),0);
  const operatingOut=operatingCashRows.filter(x=>x.direction==="out").reduce((sum,x)=>sum+Number(x.amount||0),0);
@@ -1173,12 +1174,12 @@ function renderReports(from,to){
  const margin=d.salesItems.reduce((a,x)=>a+Number(x.line_total||0)-Number(x.quantity||0)*Number(x.unit_cost_snapshot||0),0);
  const netSales=sales-returns;
  const cards=[
-  ["إجمالي فواتير المبيعات",sales],["مرتجعات المبيعات",returns],["صافي المبيعات",netSales],["إجمالي فواتير المشتريات",purchases],
+  ["إجمالي فواتير المبيعات",sales],["مرتجعات المبيعات",returns],["صافي المبيعات",netSales],["إجمالي فواتير المشتريات",purchases],["مرتجعات الموردين",purchaseReturnsTotal],
   ["تحصيلات العملاء خلال الفترة",salesPaid],["مدفوعات الموردين خلال الفترة",purchasePaid],
   ["المصروفات خلال الفترة",expense],
   ["المتبقي الحالي لفواتير المبيعات بالفترة",currentSalesDue],["المتبقي الحالي لفواتير المشتريات بالفترة",currentPurchaseDue]
  ];
- const visibleCards=cards.filter((x,i)=>i<=2?permission("sales.view"):i===3?permission("purchases.view"):i===4?permission("payments.view")&&permission("sales.view"):i===5?permission("payments.view")&&permission("purchases.view"):i===6?permission("expenses.view"):i===7?permission("sales.view"):i===8?permission("purchases.view"):false);if(profitReady)visibleCards.unshift(["صافي الربح",profit.netProfit]);
+ const visibleCards=cards.filter((x,i)=>i<=2?permission("sales.view"):i===3?permission("purchases.view"):i===4?permission("purchases.view"):i===5?permission("payments.view")&&permission("sales.view"):i===6?permission("payments.view")&&permission("purchases.view"):i===7?permission("expenses.view"):i===8?permission("sales.view"):i===9?permission("purchases.view"):false);if(profitReady)visibleCards.unshift(["صافي الربح",profit.netProfit]);
  $("reportStats").innerHTML=visibleCards.map(x=>'<div class="stat"><strong>'+reportMoney(x[1])+'</strong><span>'+esc(x[0])+'</span></div>').join("");
  const parts=[];
  if(profitReady)parts.push('<div class="subpanel"><h4>صافي الربح للفترة</h4><p>إجمالي المبيعات: '+reportMoney(profit.sales)+' · مرتجعات المبيعات: '+reportMoney(profit.returns)+' · <strong>صافي المبيعات: '+reportMoney(profit.netSales)+'</strong></p><p>تكلفة البضاعة المباعة بعد عكس المرتجعات الصالحة واسترداد تكلفة التالف المرتجع للمورد: '+reportMoney(profit.costOfGoodsSold)+'</p><p>استرداد تكلفة البضاعة التالفة المرتجعة للمورد: '+reportMoney(profit.damagedSupplierReturnRecovery)+'</p><p>مجمل الربح: '+reportMoney(profit.grossProfit)+'</p><p>المصروفات المسجلة: '+reportMoney(profit.expenses)+'</p><p>خسائر المخزون المسجلة (تالف وعجز وتسويات نقص): '+reportMoney(profit.inventoryLosses)+'</p><p><strong>صافي الربح: '+reportMoney(profit.netProfit)+'</strong></p><p class="muted">الحساب حسب تاريخ كل حركة. تكلفة البيع مأخوذة من تكلفة المخزون وقت البيع، وتُخصم تكلفة مرتجع العميل الصالح لأنه يعود للمخزون القابل للبيع، بينما تظل تكلفة مرتجع العميل التالف ضمن تكلفة البضاعة. مرتجع المورد لا يُضاف كربح مستقل؛ لكن تكلفة البضاعة التالفة المرتجعة للمورد تُسترد من تكلفة البضاعة المباعة في حدود تكلفة البضاعة التالفة التي سبق أن رجعت من العملاء.</p></div>');
