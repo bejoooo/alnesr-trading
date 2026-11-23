@@ -930,7 +930,10 @@ async function loadSalesReturnDetails(r){
  if(linesRes.error)return fail(linesRes.error);if(paymentsRes.error)return fail(paymentsRes.error);if(sourceRes.error)return fail(sourceRes.error);
  const lines=linesRes.data||[],sourceItems=sourceRes.data||[];
  const cashRefund=(paymentsRes.data||[]).reduce((sum,x)=>sum+Number(x.amount||0),0);
- const creditOffset=Math.max(0,Number(r.refund_total||0)-cashRefund);
+ const dueReduced=r.invoice_due_reduced_total==null?Math.max(0,Number(r.refund_total||0)-cashRefund):Number(r.invoice_due_reduced_total);
+ const {data:creditData,error:creditError}=await client.from("customer_credit_return_balances").select("credit_created").eq("business_id",activeBusinessId).eq("source_return_id",r.id).maybeSingle();
+ if(creditError)return fail(creditError);
+ const creditCreated=Number(creditData?.credit_created||0);
  const totalQuantity=lines.reduce((sum,x)=>sum+Number(x.quantity||0),0);
  $("salesReturnDetailsTitle").textContent="تفاصيل مرتجع رقم "+(r.return_no||"—");
  $("salesReturnDetailsBody").innerHTML='<p>كود الفاتورة الأصلية: <strong>'+esc(inv?.invoice_no||"—")+'</strong> · العميل: <strong>'+esc(inv?.customer_name_snapshot||"—")+'</strong> · التاريخ: '+dateTimeCell(r.return_date,r.created_at)+'</p><p>حالة المرتجع: <strong>'+(r.status==="void"?"ملغى":"ساري")+'</strong> · إجمالي القطع المرتجعة: <strong>'+totalQuantity+'</strong> · إجمالي القيمة: <strong>'+money(r.refund_total)+'</strong></p><div class="table-wrap"><table><thead><tr><th>الصنف</th><th>كود المنتج</th><th>الكمية المرتجعة</th><th>حالة المنتج</th><th>قيمة المرتجع</th></tr></thead><tbody>'+lines.map(x=>{const source=sourceItems.find(i=>i.id===x.sales_item_id);return '<tr><td>'+esc(source?.product_name_snapshot||"منتج")+'</td><td>'+esc(source?.product_code_snapshot||"—")+'</td><td>'+esc(x.quantity)+'</td><td>'+(x.condition==="damaged"?"تالف":"صالح")+'</td><td>'+money(x.refund_amount)+'</td></tr>';}).join("")+'</tbody></table></div><p>المردود نقدًا للعميل: <strong>'+money(cashRefund)+'</strong> · المخصوم من مديونية الفاتورة: <strong>'+money(dueReduced)+'</strong> · الرصيد الدائن المنشأ: <strong>'+money(creditCreated)+'</strong></p>'+(r.notes?'<p class="muted">ملاحظات: '+esc(r.notes)+'</p>':"");
