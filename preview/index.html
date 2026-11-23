@@ -1054,7 +1054,7 @@ function reportSum(rows,key){return (rows||[]).reduce((sum,x)=>sum+Number(x[key]
 function calculateNetProfitReport(d){
  const sales=reportSum(d.sales,"total"),returns=reportSum(d.returns,"refund_total"),netSales=sales-returns;
  const movements=d.movements||[];
- const costOfGoodsSold=movements.filter(x=>x.movement_type==="sale"||x.movement_type==="customer_return_good").reduce((sum,x)=>sum-Number(x.quantity_delta||0)*Number(x.unit_cost||0),0);
+ const costOfGoodsSold=movements.filter(x=>x.movement_type==="sale"||x.movement_type==="customer_return_good"||(x.movement_type==="adjustment_in"&&x.source_type==="sale_void")).reduce((sum,x)=>sum-Number(x.quantity_delta||0)*Number(x.unit_cost||0),0);
  const inventoryLosses=movements.filter(x=>["damage","loss","adjustment_out"].includes(x.movement_type)).reduce((sum,x)=>sum-Number(x.quantity_delta||0)*Number(x.unit_cost||0),0);
  const expenses=reportSum(d.expenses,"amount"),grossProfit=netSales-costOfGoodsSold,netProfit=grossProfit-expenses-inventoryLosses;
  return {sales,returns,netSales,costOfGoodsSold,grossProfit,expenses,inventoryLosses,netProfit};
