@@ -442,7 +442,7 @@ main{max-width:none;margin:0;padding:24px 28px}
  <div class="section-head"><div><h3>التقارير والتصدير</h3><p class="muted">تقارير حسب تاريخ كل حركة، وتظهر الأقسام التي تسمح بها صلاحيات حسابك فقط.</p></div><button type="button" id="exportReports" class="secondary">تصدير Excel شامل</button></div>
  <div class="subpanel"><div class="form-grid"><label>الفترة<select id="reportPreset"><option value="month">الشهر الحالي</option><option value="week">الأسبوع الحالي</option><option value="day">اليوم</option><option value="custom">فترة مخصصة</option></select></label><label>من تاريخ<input type="date" id="reportFrom" required></label><label>إلى تاريخ<input type="date" id="reportTo" required></label><div class="actions" style="align-items:end"><button type="button" id="runReports">تحديث التقارير</button></div></div></div>
  <div id="reportStats" class="stats"></div><div id="reportResults"><p class="muted">اختر الفترة ثم اضغط تحديث التقارير.</p></div>
- <p class="muted">تنبيه: أرصدة الحسابات والمخزون المعروضة حالية وليست أرصدة تاريخية. المتبقي الحالي للفواتير لا يمثل الرصيد التاريخي في نهاية الفترة. هامش البنود تقديري قبل أثر خصم الفاتورة الإجمالي والمرتجعات.</p>
+ <p class="muted">تنبيه: أرصدة الحسابات والمخزون المعروضة حالية وليست أرصدة تاريخية. المتبقي الحالي للفواتير لا يمثل الرصيد التاريخي في نهاية الفترة. صافي الربح يعتمد على المبيعات والمرتجعات وتكلفة المخزون والمصروفات المسجلة داخل النظام، ولا يشمل أي مصروف لم يتم تسجيله.</p>
  <div id="backupPanel" class="subpanel hidden"><h4>النسخ الاحتياطي والاستعادة</h4><p>النسخة تشمل بيانات النشاط في الجداول الأساسية، ويمكن استعادتها إلى نفس النشاط إذا كانت جداول بياناته فارغة. الاستعادة متاحة لمالك النشاط فقط.</p><div class="actions"><button type="button" id="createBackup">تنزيل نسخة احتياطية JSON</button></div><div class="form-grid" style="margin-top:12px"><label class="wide">ملف النسخة الاحتياطية<input id="backupFile" type="file" accept=".json,application/json"></label><div class="wide actions"><button type="button" id="restoreBackup" class="secondary">استعادة النسخة</button></div></div><p class="muted">مهم: النسخة تحتوي بيانات النشاط وصور المنتجات الخاصة، فاحتفظ بها في مكان آمن. الاستعادة لا تمسح بيانات موجودة ولا تستبدلها، وترفض التنفيذ إذا كان النشاط يحتوي سجلات بالفعل. الحد الأقصى لحجم ملف النسخة 100 ميجابايت.</p></div>
 </section>
 <section id="settingsModule" class="hidden">
@@ -1050,7 +1050,15 @@ async function fetchReportRows(table,fields,dateField,from,to,extra){
  return rows;
 }
 function buildOperatingMoneyRows(payments,cash,from,to){const inRange=date=>{const d=String(date||"").slice(0,10);return (!from||d>=from)&&(!to||d<=to);};return [...(payments||[]).filter(x=>inRange(x.payment_date)).map(x=>({...x,movement_date:x.payment_date})),...(cash||[]).filter(x=>!x.payment_id&&!x.treasury_transfer_id&&inRange(x.transaction_date)).map(x=>({...x,movement_date:x.transaction_date}))];}
-function reportSum(rows,key){return rows.reduce((sum,x)=>sum+Number(x[key]||0),0);}
+function reportSum(rows,key){return (rows||[]).reduce((sum,x)=>sum+Number(x[key]||0),0);}
+function calculateNetProfitReport(d){
+ const sales=reportSum(d.sales,"total"),returns=reportSum(d.returns,"refund_total"),netSales=sales-returns;
+ const movements=d.movements||[];
+ const costOfGoodsSold=movements.filter(x=>x.movement_type==="sale"||x.movement_type==="customer_return_good").reduce((sum,x)=>sum-Number(x.quantity_delta||0)*Number(x.unit_cost||0),0);
+ const inventoryLosses=movements.filter(x=>["damage","loss","adjustment_out"].includes(x.movement_type)).reduce((sum,x)=>sum-Number(x.quantity_delta||0)*Number(x.unit_cost||0),0);
+ const expenses=reportSum(d.expenses,"amount"),grossProfit=netSales-costOfGoodsSold,netProfit=grossProfit-expenses-inventoryLosses;
+ return {sales,returns,netSales,costOfGoodsSold,grossProfit,expenses,inventoryLosses,netProfit};
+}
 function visibleReportPayments(){
  const salesIds=reportData.salesPaymentInvoiceIds||new Set(),purchaseIds=reportData.purchasePaymentInvoiceIds||new Set(),returnIds=reportData.returnIds||new Set();
  return (reportData.payments||[]).filter(x=>{
@@ -1118,6 +1126,7 @@ async function loadReports(){
 }
 function renderReports(from,to){
  const d=reportData,trackedStock=d.stock.filter(x=>x.has_stock_history),sales=reportSum(d.sales,"total"),purchases=reportSum(d.purchases,"total");
+ const profitReady=permission("sales.view")&&permission("expenses.view")&&permission("inventory.view"),profit=profitReady?calculateNetProfitReport(d):null;
  const salesInvoiceIds=reportData.salesPaymentInvoiceIds||new Set(),purchaseInvoiceIds=reportData.purchasePaymentInvoiceIds||new Set();
  const salesPaid=d.payments.filter(x=>((x.invoice_id&&salesInvoiceIds.has(x.invoice_id))||(x.invoice_id===null&&x.party_account_type==="customer"&&!x.sales_return_id))).reduce((sum,x)=>sum+(x.direction==="in"?1:-1)*Number(x.amount||0),0);
  const purchasePaid=d.payments.filter(x=>((x.invoice_id&&purchaseInvoiceIds.has(x.invoice_id))||(x.invoice_id===null&&x.party_account_type==="supplier"&&!x.sales_return_id))).reduce((sum,x)=>sum+(x.direction==="out"?1:-1)*Number(x.amount||0),0);
@@ -1134,7 +1143,8 @@ function renderReports(from,to){
   ["المصروفات خلال الفترة",expense],
   ["المتبقي الحالي لفواتير المبيعات بالفترة",currentSalesDue],["المتبقي الحالي لفواتير المشتريات بالفترة",currentPurchaseDue]
  ];
- $("reportStats").innerHTML=cards.filter((x,i)=>i<=2?permission("sales.view"):i===3?permission("purchases.view"):i===4?permission("payments.view")&&permission("sales.view"):i===5?permission("payments.view")&&permission("purchases.view"):i===6?permission("expenses.view"):i===7?permission("sales.view"):i===8?permission("purchases.view"):false).map(x=>'<div class="stat"><strong>'+reportMoney(x[1])+'</strong><span>'+esc(x[0])+'</span></div>').join("");
+ const visibleCards=cards.filter((x,i)=>i<=2?permission("sales.view"):i===3?permission("purchases.view"):i===4?permission("payments.view")&&permission("sales.view"):i===5?permission("payments.view")&&permission("purchases.view"):i===6?permission("expenses.view"):i===7?permission("sales.view"):i===8?permission("purchases.view"):false);if(profitReady)visibleCards.unshift(["صافي الربح",profit.netProfit]);
+ $("reportStats").innerHTML=visibleCards.map(x=>'<div class="stat"><strong>'+reportMoney(x[1])+'</strong><span>'+esc(x[0])+'</span></div>').join("");
  const parts=[];
  if(permission("sales.view"))parts.push('<div class="subpanel"><h4>المبيعات</h4><p>عدد الفواتير: '+d.sales.length+' · إجمالي الفواتير: '+reportMoney(sales)+' · المرتجعات: '+reportMoney(returns)+' · صافي المبيعات: '+reportMoney(netSales)+' · المتبقي الحالي: '+reportMoney(currentSalesDue)+'</p><p class="muted">المتبقي الحالي هو due_total الحالي للفواتير التي تاريخها داخل الفترة، وليس رصيدًا تاريخيًا كما كان في نهاية الفترة.</p></div>');
  if(permission("purchases.view"))parts.push('<div class="subpanel"><h4>المشتريات</h4><p>عدد الفواتير: '+d.purchases.length+' · الإجمالي: '+reportMoney(purchases)+' · المتبقي الحالي: '+reportMoney(currentPurchaseDue)+'</p><p class="muted">المتبقي الحالي للفواتير المختارة، وليس رصيدًا تاريخيًا كما كان في نهاية الفترة.</p></div>');
