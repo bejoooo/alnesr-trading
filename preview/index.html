@@ -872,25 +872,29 @@ async function loadSaleDetails(inv){
  const {data:returns,error:returnError}=await fetchAllRows(()=>client.from("sales_returns").select("id,return_no,return_date,refund_total,invoice_due_reduced_total,notes,status,created_at").eq("business_id",activeBusinessId).eq("sales_invoice_id",inv.id).eq("status","posted").order("return_date",{ascending:false}).order("created_at",{ascending:false}).order("id",{ascending:false}));
  if(returnError)return fail(returnError);
  const returnIds=(returns||[]).map(r=>r.id);
- let returnItems=[],refundPayments=[];
+ let returnItems=[],refundPayments=[],returnCreditBalances=[];
  if(returnIds.length){
-  const [itemsRes,paymentsRes]=await Promise.all([
+  const [itemsRes,paymentsRes,creditRes]=await Promise.all([
    fetchAllRows(()=>client.from("sales_return_items").select("id,return_id,sales_item_id,quantity,condition,refund_amount").eq("business_id",activeBusinessId).in("return_id",returnIds).order("id",{ascending:true})),
-   fetchAllRows(()=>client.from("payments").select("sales_return_id,amount,method,direction").eq("business_id",activeBusinessId).in("sales_return_id",returnIds).eq("direction","out").order("id",{ascending:true}))
+   fetchAllRows(()=>client.from("payments").select("sales_return_id,amount,method,direction").eq("business_id",activeBusinessId).in("sales_return_id",returnIds).eq("direction","out").order("id",{ascending:true})),
+   fetchAllRows(()=>client.from("customer_credit_return_balances").select("source_return_id,available_credit,credit_created").eq("business_id",activeBusinessId).in("source_return_id",returnIds))
   ]);
-  if(itemsRes.error)return fail(itemsRes.error);if(paymentsRes.error)return fail(paymentsRes.error);
-  returnItems=itemsRes.data||[];refundPayments=paymentsRes.data||[];
+  if(itemsRes.error)return fail(itemsRes.error);if(paymentsRes.error)return fail(paymentsRes.error);if(creditRes.error)return fail(creditRes.error);
+  returnItems=itemsRes.data||[];refundPayments=paymentsRes.data||[];returnCreditBalances=creditRes.data||[];
  }
  const returnSummaries=(returns||[]).map(r=>{
   const lines=returnItems.filter(x=>x.return_id===r.id);
   const cashRefund=refundPayments.filter(x=>x.sales_return_id===r.id).reduce((sum,x)=>sum+Number(x.amount||0),0);
-  const dueReduced=r.invoice_due_reduced_total==null?Math.max(0,Number(r.refund_total||0)-cashRefund):Number(r.invoice_due_reduced_total),creditRes=await client.from("customer_credit_return_balances").select("credit_created").eq("business_id",activeBusinessId).eq("source_return_id",r.id).maybeSingle(),creditCreated=Number(creditRes.data?.credit_created||0);
-  return {...r,items:lines,cashRefund,creditOffset};
+  const dueReduced=r.invoice_due_reduced_total==null?Math.max(0,Number(r.refund_total||0)-cashRefund):Number(r.invoice_due_reduced_total);
+  const creditCreated=Number(returnCreditBalances.find(x=>x.source_return_id===r.id)?.credit_created||0);
+  const creditAvailable=Number(returnCreditBalances.find(x=>x.source_return_id===r.id)?.available_credit||0);
+  return {...r,items:lines,cashRefund,dueReduced,creditCreated,creditAvailable};
  });
  currentSalePrint={invoice:inv,items:items||[],returns:returnSummaries};
  const totalReturned=returnSummaries.reduce((sum,r)=>sum+Number(r.refund_total||0),0);
  const totalCashRefund=returnSummaries.reduce((sum,r)=>sum+r.cashRefund,0);
- const totalCreditOffset=returnSummaries.reduce((sum,r)=>sum+r.creditOffset,0);
+ const totalDueReduced=returnSummaries.reduce((sum,r)=>sum+r.dueReduced,0);
+ const totalCustomerCredit=returnSummaries.reduce((sum,r)=>sum+r.creditCreated,0);
  const returnSection=returnSummaries.length
   ?'<div class="subpanel" style="background:#fffaf1;border-color:#ead9b9"><h4>تفاصيل المرتجع</h4><p class="muted">يوضح هذا القسم سبب اختلاف صافي المتحصل والمستحق عن إجمالي الفاتورة الأصلية.</p>'+returnSummaries.map(r=>'<div class="subpanel"><div class="section-head"><strong>مرتجع رقم '+esc(r.return_no)+'</strong><span>'+dateTimeCell(r.return_date,r.created_at)+'</span></div><div class="table-wrap"><table><thead><tr><th>المنتج</th><th>كود المنتج</th><th>الكمية المرتجعة</th><th>قيمة المرتجع</th><th>حالة المنتج</th></tr></thead><tbody>'+r.items.map(x=>{const source=(items||[]).find(i=>i.id===x.sales_item_id);return '<tr><td>'+esc(source?.product_name_snapshot||"منتج")+'</td><td>'+esc(source?.product_code_snapshot||"—")+'</td><td>'+esc(x.quantity)+'</td><td>'+money(x.refund_amount)+'</td><td>'+(x.condition==="damaged"?"تالف":"صالح")+'</td></tr>';}).join("")+'</tbody></table></div><p>إجمالي القطع المرتجعة: <strong>'+r.items.reduce((sum,x)=>sum+Number(x.quantity||0),0)+'</strong> · إجمالي المرتجع: <strong>'+money(r.refund_total)+'</strong> · المردود نقدًا للعميل: <strong>'+money(r.cashRefund)+'</strong> · المخصوم من مديونية الفاتورة: <strong>'+money(r.dueReduced)+'</strong> · الرصيد الدائن المنشأ: <strong>'+money(r.creditCreated)+'</strong></p>'+(r.notes?'<p class="muted">ملاحظات: '+esc(r.notes)+'</p>':"")+'</div>').join("")+'<div class="stats"><div class="stat"><strong>'+money(totalReturned)+'</strong><span>إجمالي قيمة المرتجعات</span></div><div class="stat"><strong>'+money(totalCashRefund)+'</strong><span>إجمالي المبالغ المردودة نقدًا</span></div><div class="stat"><strong>'+money(totalDueReduced)+'</strong><span>إجمالي ما خُصم من مديونية الفواتير الأصلية</span></div><div class="stat"><strong>'+money(totalCustomerCredit)+'</strong><span>إجمالي الرصيد الدائن المنشأ</span></div></div></div>'
   :'<div class="subpanel"><h4>تفاصيل المرتجع</h4><p class="muted">لا توجد مرتجعات مسجلة على هذه الفاتورة.</p></div>';
