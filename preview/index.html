@@ -1307,13 +1307,13 @@ function exportReportsExcel(){
  const wb=XLSX.utils.book_new(),add=(name,rows)=>{if(Array.isArray(rows))XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),name);};
  const map=(rows,fn)=>rows.map(fn);
  if(permission("sales.view")){
-  add("فواتير المبيعات",map(d.sales,x=>({رقم_الفاتورة:x.invoice_no,التاريخ:x.invoice_date,العميل:x.customer_name_snapshot,الإجمالي:x.total,المدفوع_وقت_الفاتورة:x.paid_total,المتبقي_الحالي:x.due_total,الحالة:x.status})));
+  add("فواتير المبيعات",map(d.sales,x=>({رقم_الفاتورة:x.invoice_no,التاريخ:x.invoice_date,العميل:x.customer_name_snapshot,الإجمالي:x.total,المدفوع_فعليًا:Number(x.paid_total||0)-Number(x.customer_credit_applied_total||0),الرصيد_الدائن_المستخدم:x.customer_credit_applied_total,إجمالي_المسدد_نقدًا_وبالرصيد_الدائن:x.paid_total,المتبقي_الحالي:x.due_total,الحالة:x.status})));
   add("بنود المبيعات",map(d.salesItems,x=>({رقم_الفاتورة:(d.sales.find(i=>i.id===x.invoice_id)||{}).invoice_no,المنتج:x.product_name_snapshot,الكمية:x.quantity,سعر_الوحدة:x.unit_price,خصم_البند:x.line_discount,الإجمالي:x.line_total,تكلفة_الوحدة_وقت_البيع:x.unit_cost_snapshot,كمية_مرتجعة:x.returned_quantity})));
   add("المرتجعات",map(d.returns,x=>({رقم_المرتجع:x.return_no,تاريخ_المرتجع:x.return_date,قيمة_الرد:x.refund_total,ملاحظات:x.notes})));
   add("بنود_المرتجعات",map(d.returnItems,x=>({معرف_المرتجع:x.return_id,معرف_بند_البيع:x.sales_item_id,الكمية:x.quantity,الحالة:x.condition,قيمة_الرد:x.refund_amount})));
  }
  if(permission("purchases.view")){
-  add("فواتير_المشتريات",map(d.purchases,x=>({رقم_الفاتورة:x.invoice_no,التاريخ:x.invoice_date,المورد:x.supplier_name_snapshot,الإجمالي:x.total,المدفوع_وقت_الفاتورة:x.paid_total,المتبقي_الحالي:x.due_total,الحالة:x.status})));
+  add("فواتير_المشتريات",map(d.purchases,x=>({رقم_الفاتورة:x.invoice_no,التاريخ:x.invoice_date,المورد:x.supplier_name_snapshot,الإجمالي:x.total,المدفوع_فعليًا:x.paid_total,الرصيد_الدائن_المستخدم:x.supplier_credit_applied_total,إجمالي_المسدد_نقدًا_وبالرصيد_الدائن:Number(x.paid_total||0)+Number(x.supplier_credit_applied_total||0),المتبقي_الحالي:x.due_total,الحالة:x.status})));
   add("بنود_المشتريات",map(d.purchaseItems,x=>({رقم_الفاتورة:(d.purchases.find(i=>i.id===x.invoice_id)||{}).invoice_no,المنتج:x.product_name_snapshot,الكمية:x.quantity,سعر_الوحدة:x.unit_price,الخصم_الموزع:x.allocated_discount,صافي_البند:x.net_line_total,تكلفة_الوحدة_النهائية:x.unit_landed_cost})));
   add("مرتجعات_المشتريات",map(d.purchaseReturns,x=>{const inv=d.purchases.find(i=>i.id===x.purchase_invoice_id);return {رقم_المرتجع:x.return_no,التاريخ:x.return_date,رقم_الفاتورة_الأصلية:inv?.invoice_no||"",المورد:inv?.supplier_name_snapshot||"",قيمة_المرتجع:x.total,الرصيد_الدائن_المتولد:x.credit_generated_total,الحالة:x.status};}));
  }
