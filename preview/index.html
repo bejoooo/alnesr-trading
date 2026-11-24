@@ -1195,7 +1195,7 @@ function visibleReportPayments(){
  const salesIds=reportData.salesPaymentInvoiceIds||new Set(),purchaseIds=reportData.purchasePaymentInvoiceIds||new Set(),returnIds=reportData.returnIds||new Set();
  return (reportData.payments||[]).filter(x=>{
   if(x.invoice_id===null&&!x.sales_return_id)return (x.party_account_type==="customer"&&permission("sales.view"))||(x.party_account_type==="supplier"&&permission("purchases.view"));
-  if(x.sales_return_id)return permission("sales.view")&&returnIds.has(x.sales_return_id);
+  if(x.sales_return_id)return permission("sales.view")&&salesIds.has(x.invoice_id);
   return (permission("sales.view")&&salesIds.has(x.invoice_id))||(permission("purchases.view")&&purchaseIds.has(x.invoice_id));
  });
 }
@@ -1220,8 +1220,23 @@ async function loadReports(){
   add("returns",permission("sales.view"),"sales_returns","id,return_no,sales_invoice_id,customer_id,return_date,refund_total,notes,status","return_date",q=>q.eq("status","posted"));
   add("movements",permission("inventory.view"),"stock_movements","id,product_id,movement_date,movement_type,quantity_delta,unit_cost,source_type,source_id,stock_bucket,notes","movement_date");
   await Promise.all(jobs);
-  reportData.salesPaymentInvoiceIds=new Set((reportData.sales||[]).map(x=>x.id));
-  reportData.purchasePaymentInvoiceIds=new Set((reportData.purchases||[]).map(x=>x.id));
+  const paymentInvoiceIds=[...new Set((reportData.payments||[]).map(x=>x.invoice_id).filter(Boolean))];
+  const salesPaymentIds=new Set((reportData.sales||[]).map(x=>x.id));
+  const purchasePaymentIds=new Set((reportData.purchases||[]).map(x=>x.id));
+  const paymentInvoiceLookups=[];
+  if(permission("sales.view")&&paymentInvoiceIds.length){
+   for(let i=0;i<paymentInvoiceIds.length;i+=100){
+    paymentInvoiceLookups.push(fetchAllRows(()=>client.from("sales_invoices").select("id").eq("business_id",activeBusinessId).in("id",paymentInvoiceIds.slice(i,i+100))).then(({data,error})=>{if(error)throw error;for(const row of data||[])salesPaymentIds.add(row.id);}));
+   }
+  }
+  if(permission("purchases.view")&&paymentInvoiceIds.length){
+   for(let i=0;i<paymentInvoiceIds.length;i+=100){
+    paymentInvoiceLookups.push(fetchAllRows(()=>client.from("purchase_invoices").select("id").eq("business_id",activeBusinessId).in("id",paymentInvoiceIds.slice(i,i+100))).then(({data,error})=>{if(error)throw error;for(const row of data||[])purchasePaymentIds.add(row.id);}));
+   }
+  }
+  await Promise.all(paymentInvoiceLookups);
+  reportData.salesPaymentInvoiceIds=salesPaymentIds;
+  reportData.purchasePaymentInvoiceIds=purchasePaymentIds;
   reportData.returnIds=new Set((reportData.returns||[]).map(x=>x.id));
   const tasks=[];
   if(permission("inventory.view")&&permission("products.view"))tasks.push(fetchAllRows(()=>client.from("product_stock_balances").select("product_id,code,name,unit,minimum_stock,quantity_on_hand,average_cost,stock_value,below_minimum,has_stock_history,out_of_stock").eq("business_id",activeBusinessId).order("product_id",{ascending:true})).then(({data,error})=>{if(error)throw error;reportData.stock=data||[];}));else reportData.stock=[];
