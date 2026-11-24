@@ -471,7 +471,7 @@ $("connection").textContent="إعداد الاتصال مكتمل";show("setupNo
 $("loginForm").addEventListener("submit",async e=>{e.preventDefault();message("authMessage","جارٍ تسجيل الدخول...");const d=new FormData(e.currentTarget);const {error}=await client.auth.signInWithPassword({email:d.get("email"),password:d.get("password")});if(error)return message("authMessage",error.message);message("authMessage","");});
 $("signupForm").addEventListener("submit",async e=>{e.preventDefault();message("authMessage","جارٍ إنشاء الحساب...");const d=new FormData(e.currentTarget);const {error}=await client.auth.signUp({email:d.get("email"),password:d.get("password")});if(error)return message("authMessage",error.message);message("authMessage","تم إرسال طلب إنشاء حساب الموظف. أكّد بريدك الإلكتروني، ثم أرسل البريد لمالك نشاط النسر ليضيفك.");});
 
-let businessSwitchToken=0,businessSwitching=false;
+let businessSwitchToken=0,businessSwitching=false,workspaceAuthGeneration=0;
 function clearBusinessRuntimeState(){
  products=[];archivedProducts=[];balances={};productListMode="active";
  customers=[];suppliers=[];purchaseInvoices=[];purchaseLineCount=0;purchaseReturns=[];purchaseReturnItems=[];purchaseReturnSupplierBalance=0;
@@ -483,6 +483,19 @@ function clearBusinessRuntimeState(){
  draftPanelIds.forEach(id=>show(id,false));
  draftFormIds.forEach(id=>$(id)?.reset());
  closeProductImageLightbox();
+}
+function clearWorkspaceSessionState(clearDraft=true){
+ const generation=++workspaceAuthGeneration;
+ ++businessSwitchToken;businessSwitching=false;
+ if(clearDraft)clearAppState();
+ memberships=[];activeBusinessId=null;window.__alnesrStateUser=null;
+ $("businessSelect").replaceChildren();
+ $("moduleShell").inert=false;$("moduleShell").removeAttribute("aria-busy");
+ show("businessPicker",false);show("businessSetup",false);show("moduleShell",false);
+ show("workspace",false);show("authLoading",false);show("authPanel",true);
+ Promise.allSettled(Array.from(businessLoadPromises)).then(()=>{
+  if(generation===workspaceAuthGeneration)clearBusinessRuntimeState();
+ });
 }
 $("businessSelect").addEventListener("change",async()=>{
  const requestedBusinessId=$("businessSelect").value;
@@ -510,9 +523,53 @@ $("businessSelect").addEventListener("change",async()=>{
   if(token===businessSwitchToken){businessSwitching=false;shell.inert=false;shell.removeAttribute("aria-busy");}
  }
 });
-$("logout").addEventListener("click",async()=>{if(!window.confirm("هل تريد تسجيل الخروج من نشاط النسر؟"))return;clearAppState();const {error}=await client.auth.signOut();if(error)return fail(error);memberships=[];activeBusinessId=null;show("workspace",false);show("authPanel",true);$("connection").textContent="تم تسجيل الخروج";});
+$("logout").addEventListener("click",async()=>{if(!window.confirm("هل تريد تسجيل الخروج من نشاط النسر؟"))return;const {error}=await client.auth.signOut();if(error)return fail(error);$("connection").textContent="تم تسجيل الخروج";});
 $("newProductBtn").addEventListener("click",()=>openProductForm());$("cancelProduct").addEventListener("click",()=>show("productEditor",false));$("refreshProducts").addEventListener("click",loadProducts);$("openDamagedStock").addEventListener("click",async()=>{if(!permission("inventory.view"))return message("globalMessage","ليس لديك صلاحية عرض المخزون.");show("damagedStockPanel",true);$("damagedStockPanel").scrollIntoView({behavior:"smooth",block:"start"});await loadDamagedStock();});$("closeDamagedStock").addEventListener("click",()=>show("damagedStockPanel",false));$("conditionTransferForm").addEventListener("submit",postStockConditionTransfer);$("productSearch").addEventListener("input",renderProducts);$("stockFilter").addEventListener("change",renderProducts);$("productArchiveFilter").addEventListener("change",()=>{productListMode=$("productArchiveFilter").value;loadProducts();});$("cancelStock").addEventListener("click",()=>show("stockEditor",false));$("closeHistory").addEventListener("click",()=>show("stockHistory",false));$("stockForm").elements.direction.addEventListener("change",()=>show("adjustCostLabel",$("stockForm").elements.direction.value==="in"));$("productForm").addEventListener("submit",saveProduct);$("productImageFile").addEventListener("change",previewProductImage);$("clearProductImage").addEventListener("click",()=>{const f=$("productForm");f.elements.image_file.value="";$("productImagePreview").removeAttribute("src");show("productImagePreview",false);f.elements.remove_image.value=f.elements.id.value&&products.find(p=>p.id===f.elements.id.value)?.image_path?"true":"false";show("clearProductImage",false);});$("stockForm").addEventListener("submit",saveStockAdjustment);
-async function loadWorkspace(){message("globalMessage","جارٍ تحميل عضوياتك...");const {data:u,error:ue}=await client.auth.getUser();if(ue||!u.user){show("workspace",false);show("authPanel",true);return;}const {data,error}=await client.from("business_members").select("business_id,role,permissions,active,businesses(id,name,phone,address,tagline)").eq("user_id",u.user.id).eq("active",true);if(error){show("workspace",false);show("authPanel",true);return fail(error);}memberships=data||[];window.__alnesrStateUser=u.user.id;show("authPanel",false);show("workspace",true);if(!memberships.length){show("businessSetup",true);show("businessPicker",false);show("moduleShell",false);$("welcome").textContent="مرحبًا، "+u.user.email;$("memberRole").textContent="حسابك غير مرتبط بنشاط حتى يضيفك مالك النسر.";}else{show("businessSetup",false);show("moduleShell",true);const s=$("businessSelect");s.innerHTML=memberships.map(m=>{const b=Array.isArray(m.businesses)?m.businesses[0]:m.businesses;return '<option value="'+esc(m.business_id)+'">'+esc(b?.name||"نشاط")+'</option>';}).join("");show("businessPicker",memberships.length>1);activeBusinessId=activeBusinessId&&memberships.some(m=>m.business_id===activeBusinessId)?activeBusinessId:memberships[0].business_id;s.value=activeBusinessId;renderMembership();await loadProducts();const savedState=readAppState(u.user.id,activeBusinessId);const moduleTabs={dashboardModule:"showDashboardTab",productsModule:"showProductsTab",customersModule:"showCustomersTab",suppliersModule:"showSuppliersTab",purchasesModule:"showPurchasesTab",salesModule:"showSalesTab",returnsModule:"showReturnsTab",cashModule:"showCashTab",transfersModule:"showTransfersTab",reportsModule:"showReportsTab",settingsModule:"showSettingsTab"};const moduleLoaders={dashboardModule:loadDashboardModule,productsModule:loadProducts,customersModule:loadCustomersModule,suppliersModule:loadSuppliersModule,purchasesModule:loadPurchasesModule,salesModule:loadSalesModule,returnsModule:loadSalesModule,cashModule:loadCashModule,transfersModule:loadTransfersModule,reportsModule:loadReports,settingsModule:loadSettingsModule};const moduleAccess={dashboardModule:true,productsModule:permission("products.view"),customersModule:permission("parties.view"),suppliersModule:permission("parties.view"),purchasesModule:permission("purchases.view"),salesModule:permission("sales.view"),returnsModule:permission("sales.view"),cashModule:permission("cash.view")||permission("expenses.view"),transfersModule:permission("cash.create")&&permission("cash.view")&&permission("payments.view"),reportsModule:canOpenReports(),settingsModule:permission("settings.view")};const wanted=savedState?.module&&moduleTabs[savedState.module]&&moduleAccess[savedState.module]?savedState.module:"dashboardModule";restoringAppState=true;try{activateModule(wanted,moduleTabs[wanted]);if(moduleLoaders[wanted])await moduleLoaders[wanted]();restoreAppDrafts(savedState);}finally{restoringAppState=false;}saveAppState();}message("globalMessage","");}
+async function loadWorkspace(){
+ const authGeneration=++workspaceAuthGeneration;
+ message("globalMessage","جارٍ تحميل عضوياتك...");
+ const {data:u,error:ue}=await client.auth.getUser();
+ if(authGeneration!==workspaceAuthGeneration)return;
+ if(ue||!u.user){clearWorkspaceSessionState(true);if(ue)fail(ue);return;}
+ const {data,error}=await client.from("business_members").select("business_id,role,permissions,active,businesses(id,name,phone,address,tagline)").eq("user_id",u.user.id).eq("active",true);
+ if(authGeneration!==workspaceAuthGeneration)return;
+ if(error){clearWorkspaceSessionState(false);fail(error);return;}
+ memberships=data||[];window.__alnesrStateUser=u.user.id;
+ show("authPanel",false);show("workspace",true);
+ if(!memberships.length){
+  activeBusinessId=null;clearBusinessRuntimeState();
+  show("businessSetup",true);show("businessPicker",false);show("moduleShell",false);
+  $("welcome").textContent="مرحبًا، "+u.user.email;
+  $("memberRole").textContent="حسابك غير مرتبط بنشاط حتى يضيفك مالك نشاط النسر.";
+ }else{
+  show("businessSetup",false);show("moduleShell",true);
+  const select=$("businessSelect");
+  select.innerHTML=memberships.map(m=>{
+   const b=Array.isArray(m.businesses)?m.businesses[0]:m.businesses;
+   return '<option value="'+esc(m.business_id)+'">'+esc(b?.name||"نشاط")+'</option>';
+  }).join("");
+  show("businessPicker",memberships.length>1);
+  activeBusinessId=activeBusinessId&&memberships.some(m=>m.business_id===activeBusinessId)?activeBusinessId:memberships[0].business_id;
+  select.value=activeBusinessId;renderMembership();
+  await loadProducts();
+  if(authGeneration!==workspaceAuthGeneration)return;
+  const savedState=readAppState(u.user.id,activeBusinessId);
+  const moduleTabs={dashboardModule:"showDashboardTab",productsModule:"showProductsTab",customersModule:"showCustomersTab",suppliersModule:"showSuppliersTab",purchasesModule:"showPurchasesTab",salesModule:"showSalesTab",returnsModule:"showReturnsTab",cashModule:"showCashTab",transfersModule:"showTransfersTab",reportsModule:"showReportsTab",settingsModule:"showSettingsTab"};
+  const moduleLoaders={dashboardModule:loadDashboardModule,productsModule:loadProducts,customersModule:loadCustomersModule,suppliersModule:loadSuppliersModule,purchasesModule:loadPurchasesModule,salesModule:loadSalesModule,returnsModule:loadSalesModule,cashModule:loadCashModule,transfersModule:loadTransfersModule,reportsModule:loadReports,settingsModule:loadSettingsModule};
+  const moduleAccess={dashboardModule:true,productsModule:permission("products.view"),customersModule:permission("parties.view"),suppliersModule:permission("parties.view"),purchasesModule:permission("purchases.view"),salesModule:permission("sales.view"),returnsModule:permission("sales.view"),cashModule:permission("cash.view")||permission("expenses.view"),transfersModule:permission("cash.create")&&permission("cash.view")&&permission("payments.view"),reportsModule:canOpenReports(),settingsModule:permission("settings.view")};
+  const wanted=savedState?.module&&moduleTabs[savedState.module]&&moduleAccess[savedState.module]?savedState.module:"dashboardModule";
+  restoringAppState=true;
+  try{
+   activateModule(wanted,moduleTabs[wanted]);
+   if(moduleLoaders[wanted])await moduleLoaders[wanted]();
+   if(authGeneration!==workspaceAuthGeneration)return;
+   restoreAppDrafts(savedState);
+  }finally{restoringAppState=false;}
+  if(authGeneration!==workspaceAuthGeneration)return;
+  saveAppState();
+ }
+ if(authGeneration===workspaceAuthGeneration)message("globalMessage","");
+}
 
 const STAFF_PERMISSION_OPTIONS=[["products.view","عرض المنتجات"],["products.create","إضافة منتجات"],["products.edit","تعديل المنتجات"],["parties.view","عرض العملاء والموردين"],["parties.create","إضافة العملاء والموردين"],["parties.edit","تعديل العملاء والموردين"],["purchases.view","عرض المشتريات"],["purchases.create","إنشاء مشتريات"],["purchases.edit","تعديل المشتريات"],["sales.view","عرض المبيعات"],["sales.create","إنشاء مبيعات"],["sales.edit","تعديل المبيعات"],["payments.view","عرض الدفعات"],["payments.create","إنشاء دفعات"],["payments.record","تسجيل التحصيل والسداد"],["inventory.view","عرض المخزون"],["inventory.create","تسوية المخزون"],["expenses.view","عرض المصروفات"],["expenses.create","إضافة مصروفات"],["expenses.edit","تعديل المصروفات"],["cash.view","عرض الخزنة"],["cash.create","حركات الخزنة"],["cash.deposit","إيداع نقدي"],["cash.withdraw","سحب نقدي"],["settings.view","عرض إعدادات النشاط"],["audit.view","عرض سجل المراجعة"]];
 const STAFF_ROLE_DEFAULTS={"manager":["products.view","products.create","products.edit","parties.view","parties.create","parties.edit","purchases.view","purchases.create","purchases.edit","sales.view","sales.create","sales.edit","payments.view","payments.create","payments.record","inventory.view","inventory.create","expenses.view","expenses.create","expenses.edit","cash.view","cash.create","cash.deposit","cash.withdraw","settings.view"],"cashier":["products.view","parties.view","parties.create","sales.view","sales.create","sales.edit","payments.view","payments.create","payments.record","inventory.view","cash.view","cash.create"],"viewer":["products.view","parties.view","purchases.view","sales.view","payments.view","inventory.view","expenses.view","cash.view","settings.view","audit.view"]};
@@ -691,7 +748,7 @@ async function postStockConditionTransfer(e){
 function money(v){return Number(v||0).toLocaleString("en-EG",{minimumFractionDigits:2,maximumFractionDigits:2})+" ج.م";}
 function dateTimeCell(date,stamp){const d=esc(date||"—");if(!stamp)return d;const t=new Intl.DateTimeFormat("en-GB",{hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false,timeZone:"Africa/Cairo"}).format(new Date(stamp));return '<span class="date-time"><span>'+d+'</span><small>'+t+'</small></span>';}
 function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
-applyReportPreset();const startWorkspaceLoad=()=>{show("authLoading",true);show("authPanel",false);show("workspace",false);setTimeout(async()=>{try{await loadWorkspace();}catch(error){fail(error);show("authPanel",true);}finally{show("authLoading",false);}},0);};client.auth.onAuthStateChange((event,session)=>{if(event==="INITIAL_SESSION"){if(session){startWorkspaceLoad();}else{show("authLoading",false);show("workspace",false);show("authPanel",true);}}else if(event==="SIGNED_IN"&&session){startWorkspaceLoad();}else if(event==="SIGNED_OUT"){show("authLoading",false);show("workspace",false);show("authPanel",true);}});
+applyReportPreset();const startWorkspaceLoad=()=>{show("authLoading",true);show("authPanel",false);show("workspace",false);setTimeout(async()=>{try{await loadWorkspace();}catch(error){clearWorkspaceSessionState(false);fail(error);}finally{if(!activeBusinessId)show("authLoading",false);}},0);};client.auth.onAuthStateChange((event,session)=>{if(event==="INITIAL_SESSION"){if(session){startWorkspaceLoad();}else{clearWorkspaceSessionState(true);}}else if(event==="SIGNED_IN"&&session){startWorkspaceLoad();}else if(event==="SIGNED_OUT"){clearWorkspaceSessionState(true);}});
 
 
 let restoringAppState=false;
