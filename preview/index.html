@@ -1180,12 +1180,52 @@ async function fetchReportRows(table,fields,dateField,from,to,extra){
 }
 function buildOperatingMoneyRows(payments,cash,from,to){const inRange=date=>{const d=String(date||"").slice(0,10);return (!from||d>=from)&&(!to||d<=to);};return [...(payments||[]).filter(x=>inRange(x.payment_date)).map(x=>({...x,movement_date:x.payment_date})),...(cash||[]).filter(x=>!x.payment_id&&!x.treasury_transfer_id&&inRange(x.transaction_date)).map(x=>({...x,movement_date:x.transaction_date}))];}
 function reportSum(rows,key){return (rows||[]).reduce((sum,x)=>sum+Number(x[key]||0),0);}
+function calculateDamagedSupplierReturnRecovery(history,from,to){
+ const rows=history||[];
+ const reversedIds=new Set(rows.filter(x=>x.reversal_of_movement_id&&(!to||x.movement_date<=to)).map(x=>x.reversal_of_movement_id));
+ const active=rows.filter(x=>x.id&&!reversedIds.has(x.id));
+ const events=active.filter(x=>
+  (x.movement_type==="customer_return_damaged"&&x.source_type==="sales_return"&&x.stock_bucket==="damaged"&&Number(x.quantity_delta)>0)||
+  (x.movement_type==="purchase_return"&&x.source_type==="purchase_return"&&x.stock_bucket==="damaged"&&Number(x.quantity_delta)<0)
+ ).sort((a,b)=>{
+  const dateCompare=String(a.movement_date||"").localeCompare(String(b.movement_date||""));
+  if(dateCompare)return dateCompare;
+  const postedCompare=String(a.posted_at||a.created_at||"").localeCompare(String(b.posted_at||b.created_at||""));
+  if(postedCompare)return postedCompare;
+  return String(a.id||"").localeCompare(String(b.id||""));
+ });
+ const availableByProduct=new Map();
+ let recovery=0;
+ for(const movement of events){
+  const productId=movement.product_id;
+  if(!productId)continue;
+  if(movement.movement_type==="customer_return_damaged"){
+   const quantity=Number(movement.quantity_delta||0),unitCost=Math.max(0,Number(movement.unit_cost||0));
+   if(quantity<=0)continue;
+   if(!availableByProduct.has(productId))availableByProduct.set(productId,[]);
+   availableByProduct.get(productId).push({remaining:quantity,unitCost});
+   continue;
+  }
+  let remaining=Math.abs(Number(movement.quantity_delta||0));
+  const supplierUnitCost=Math.max(0,Number(movement.unit_cost||0));
+  const queue=availableByProduct.get(productId)||[];
+  let movementRecovery=0;
+  while(remaining>0.000001&&queue.length){
+   const lot=queue[0],matched=Math.min(remaining,lot.remaining);
+   movementRecovery+=matched*Math.min(lot.unitCost,supplierUnitCost);
+   lot.remaining-=matched;
+   remaining-=matched;
+   if(lot.remaining<=0.000001)queue.shift();
+  }
+  if(movement.movement_date>=from&&movement.movement_date<=to)recovery+=movementRecovery;
+ }
+ return Math.round((recovery+Number.EPSILON)*100)/100;
+}
 function calculateNetProfitReport(d){
  const sales=reportSum(d.sales,"total"),returns=reportSum(d.returns,"refund_total"),netSales=sales-returns;
  const movements=d.movements||[];
  const baseCostOfGoodsSold=movements.filter(x=>x.movement_type==="sale"||x.movement_type==="customer_return_good"||(x.movement_type==="adjustment_in"&&x.source_type==="sale_void")).reduce((sum,x)=>sum-Number(x.quantity_delta||0)*Number(x.unit_cost||0),0);
- const damagedCustomerReturnCost=movements.filter(x=>x.movement_type==="customer_return_damaged").reduce((sum,x)=>sum+Number(x.quantity_delta||0)*Number(x.unit_cost||0),0);
- const damagedSupplierReturnRecovery=Math.min(damagedCustomerReturnCost,movements.filter(x=>x.movement_type==="purchase_return"&&x.source_type==="purchase_return"&&x.stock_bucket==="damaged").reduce((sum,x)=>sum-Number(x.quantity_delta||0)*Number(x.unit_cost||0),0));
+ const damagedSupplierReturnRecovery=calculateDamagedSupplierReturnRecovery(d.damagedRecoveryMovements,d.from,d.to);
  const costOfGoodsSold=baseCostOfGoodsSold-damagedSupplierReturnRecovery;
  const inventoryLosses=movements.filter(x=>x.movement_type==="damage"||x.movement_type==="loss"||(x.movement_type==="adjustment_out"&&x.source_type==="manual_adjustment")||(x.movement_type==="adjustment_in"&&x.source_type==="adjustment_reversal")).reduce((sum,x)=>sum-Number(x.quantity_delta||0)*Number(x.unit_cost||0),0);
  const expenses=reportSum(d.expenses,"amount"),grossProfit=netSales-costOfGoodsSold,netProfit=grossProfit-expenses-inventoryLosses;
@@ -1220,6 +1260,27 @@ async function loadReports(){
   add("returns",permission("sales.view"),"sales_returns","id,return_no,sales_invoice_id,customer_id,return_date,refund_total,notes,status","return_date",q=>q.eq("status","posted"));
   add("movements",permission("inventory.view"),"stock_movements","id,product_id,movement_date,movement_type,quantity_delta,unit_cost,source_type,source_id,stock_bucket,notes","movement_date");
   await Promise.all(jobs);
+  reportData.damagedRecoveryMovements=[];
+  if(permission("inventory.view")){
+   const recoveryResult=await fetchAllRows(()=>client.from("stock_movements")
+    .select("id,product_id,movement_date,movement_type,quantity_delta,unit_cost,source_type,source_id,stock_bucket,created_at,posted_at,reversal_of_movement_id")
+    .eq("business_id",activeBusinessId).lte("movement_date",to)
+    .in("movement_type",["customer_return_damaged","purchase_return"])
+    .order("movement_date",{ascending:true}).order("posted_at",{ascending:true}).order("id",{ascending:true}));
+   if(recoveryResult.error)throw recoveryResult.error;
+   const recoveryRows=recoveryResult.data||[];
+   const reversalRows=[];
+   const recoveryIds=recoveryRows.map(x=>x.id);
+   for(let i=0;i<recoveryIds.length;i+=100){
+    const reversed=await fetchAllRows(()=>client.from("stock_movements")
+     .select("id,reversal_of_movement_id,movement_date")
+     .eq("business_id",activeBusinessId).lte("movement_date",to)
+     .in("reversal_of_movement_id",recoveryIds.slice(i,i+100)));
+    if(reversed.error)throw reversed.error;
+    reversalRows.push(...(reversed.data||[]));
+   }
+   reportData.damagedRecoveryMovements=[...recoveryRows,...reversalRows];
+  }
   const paymentInvoiceIds=[...new Set((reportData.payments||[]).map(x=>x.invoice_id).filter(Boolean))];
   const salesPaymentIds=new Set((reportData.sales||[]).map(x=>x.id));
   const purchasePaymentIds=new Set((reportData.purchases||[]).map(x=>x.id));
@@ -1274,7 +1335,7 @@ async function loadReports(){
 }
 function renderReports(from,to){
  const d=reportData,trackedStock=d.stock.filter(x=>x.has_stock_history),sales=reportSum(d.sales,"total"),purchases=reportSum(d.purchases,"total");
- const profitReady=permission("sales.view")&&permission("expenses.view")&&permission("inventory.view"),profit=profitReady?calculateNetProfitReport(d):null;
+ const profitReady=permission("sales.view")&&permission("expenses.view")&&permission("inventory.view"),profit=profitReady?calculateNetProfitReport({...d,from,to}):null;
  const salesInvoiceIds=reportData.salesPaymentInvoiceIds||new Set(),purchaseInvoiceIds=reportData.purchasePaymentInvoiceIds||new Set();
  const salesPaid=d.payments.filter(x=>((x.invoice_id&&salesInvoiceIds.has(x.invoice_id))||(x.invoice_id===null&&x.party_account_type==="customer"&&!x.sales_return_id))).reduce((sum,x)=>sum+(x.direction==="in"?1:-1)*Number(x.amount||0),0);
  const purchasePaid=d.payments.filter(x=>((x.invoice_id&&purchaseInvoiceIds.has(x.invoice_id))||(x.invoice_id===null&&x.party_account_type==="supplier"&&!x.sales_return_id))).reduce((sum,x)=>sum+(x.direction==="out"?1:-1)*Number(x.amount||0),0);
@@ -1318,7 +1379,7 @@ function exportReportsExcel(){
  const d=reportData;if(!d||!Object.keys(d).length)return message("globalMessage","حمّل التقارير أولًا قبل التصدير.");
  const from=$("reportFrom").value,to=$("reportTo").value;
  if(!from||!to||from>to)return message("globalMessage","حدد نطاق تاريخ صحيح (من تاريخ إلى تاريخ) ثم أعد تحميل التقارير.");
- const profitReady=permission("sales.view")&&permission("expenses.view")&&permission("inventory.view"),profit=profitReady?calculateNetProfitReport(d):null;
+ const profitReady=permission("sales.view")&&permission("expenses.view")&&permission("inventory.view"),profit=profitReady?calculateNetProfitReport({...d,from,to}):null;
  const wb=XLSX.utils.book_new(),add=(name,rows)=>{if(Array.isArray(rows))XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),name);};
  const map=(rows,fn)=>rows.map(fn);
  if(permission("sales.view")){
