@@ -474,13 +474,14 @@ $("signupForm").addEventListener("submit",async e=>{e.preventDefault();message("
 let businessSwitchToken=0,businessSwitching=false;
 function clearBusinessRuntimeState(){
  products=[];archivedProducts=[];balances={};productListMode="active";
- customers=[];suppliers=[];purchaseInvoices=[];purchaseReturns=[];purchaseReturnItems=[];purchaseReturnSupplierBalance=0;
- salesInvoices=[];salesReturns=[];returnInvoiceItems=[];saleCustomerCredit=0;currentCustomerStatement=null;currentSalePrint=null;
+ customers=[];suppliers=[];purchaseInvoices=[];purchaseLineCount=0;purchaseReturns=[];purchaseReturnItems=[];purchaseReturnSupplierBalance=0;
+ salesInvoices=[];saleLineCount=0;salesReturns=[];returnInvoiceItems=[];saleCustomerCredit=0;currentCustomerStatement=null;currentSalePrint=null;
  cashTransactions=[];expenseRows=[];openingParties=[];
  customerListMode="active";supplierListMode="active";
  Object.keys(reportData).forEach(key=>delete reportData[key]);
  document.querySelectorAll("#moduleShell tbody").forEach(body=>body.replaceChildren());
  draftPanelIds.forEach(id=>show(id,false));
+ draftFormIds.forEach(id=>$(id)?.reset());
  closeProductImageLightbox();
 }
 $("businessSelect").addEventListener("change",async()=>{
