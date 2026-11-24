@@ -1222,14 +1222,14 @@ function calculateDamagedSupplierReturnRecovery(history,from,to){
  return Math.round((recovery+Number.EPSILON)*100)/100;
 }
 function calculateNetProfitReport(d){
- const sales=reportSum(d.sales,"total"),returns=reportSum(d.returns,"refund_total"),netSales=sales-returns;
+ const salesVoidAdjustments=reportSum(d.voidSalesByCancellationDate,"total"),sales=reportSum(d.sales,"total")+reportSum(d.voidSalesByInvoiceDate,"total")-salesVoidAdjustments,returns=reportSum(d.returns,"refund_total"),netSales=sales-returns;
  const movements=d.movements||[];
  const baseCostOfGoodsSold=movements.filter(x=>x.movement_type==="sale"||x.movement_type==="customer_return_good"||(x.movement_type==="adjustment_in"&&x.source_type==="sale_void")).reduce((sum,x)=>sum-Number(x.quantity_delta||0)*Number(x.unit_cost||0),0);
  const damagedSupplierReturnRecovery=calculateDamagedSupplierReturnRecovery(d.damagedRecoveryMovements,d.from,d.to);
  const costOfGoodsSold=baseCostOfGoodsSold-damagedSupplierReturnRecovery;
  const inventoryLosses=movements.filter(x=>x.movement_type==="damage"||x.movement_type==="loss"||(x.movement_type==="adjustment_out"&&x.source_type==="manual_adjustment")||(x.movement_type==="adjustment_in"&&x.source_type==="adjustment_reversal")).reduce((sum,x)=>sum-Number(x.quantity_delta||0)*Number(x.unit_cost||0),0);
  const expenses=reportSum(d.expenses,"amount"),grossProfit=netSales-costOfGoodsSold,netProfit=grossProfit-expenses-inventoryLosses;
- return {sales,returns,netSales,costOfGoodsSold,damagedSupplierReturnRecovery,grossProfit,expenses,inventoryLosses,netProfit};
+ return {sales,salesVoidAdjustments,returns,netSales,costOfGoodsSold,damagedSupplierReturnRecovery,grossProfit,expenses,inventoryLosses,netProfit};
 }
 function visibleReportPayments(){
  const salesIds=reportData.salesPaymentInvoiceIds||new Set(),purchaseIds=reportData.purchasePaymentInvoiceIds||new Set(),returnIds=reportData.returnIds||new Set();
@@ -1280,6 +1280,18 @@ async function loadReports(){
     reversalRows.push(...(reversed.data||[]));
    }
    reportData.damagedRecoveryMovements=[...recoveryRows,...reversalRows];
+  }
+  reportData.voidSalesByInvoiceDate=[];
+  reportData.voidSalesByCancellationDate=[];
+  if(permission("sales.view")&&permission("inventory.view")){
+   reportData.voidSalesByInvoiceDate=await fetchReportRows("sales_invoices","id,invoice_no,invoice_date,total","invoice_date",from,to,q=>q.eq("status","void"));
+   const cancellationInvoiceIds=[...new Set((reportData.movements||[]).filter(x=>x.source_type==="sale_void"&&x.source_id).map(x=>x.source_id))];
+   for(let i=0;i<cancellationInvoiceIds.length;i+=100){
+    const cancelled=await fetchAllRows(()=>client.from("sales_invoices").select("id,invoice_no,invoice_date,total")
+     .eq("business_id",activeBusinessId).eq("status","void").in("id",cancellationInvoiceIds.slice(i,i+100)));
+    if(cancelled.error)throw cancelled.error;
+    reportData.voidSalesByCancellationDate.push(...(cancelled.data||[]));
+   }
   }
   const paymentInvoiceIds=[...new Set((reportData.payments||[]).map(x=>x.invoice_id).filter(Boolean))];
   const salesPaymentIds=new Set((reportData.sales||[]).map(x=>x.id));
@@ -1334,8 +1346,9 @@ async function loadReports(){
  }catch(e){console.error(e);$("reportResults").innerHTML='<p class="muted">تعذر تحميل التقارير: '+esc(e?.message||"خطأ غير معروف")+'</p>';fail(e);}
 }
 function renderReports(from,to){
- const d=reportData,trackedStock=d.stock.filter(x=>x.has_stock_history),sales=reportSum(d.sales,"total"),purchases=reportSum(d.purchases,"total");
+ const d=reportData,trackedStock=d.stock.filter(x=>x.has_stock_history),purchases=reportSum(d.purchases,"total");
  const profitReady=permission("sales.view")&&permission("expenses.view")&&permission("inventory.view"),profit=profitReady?calculateNetProfitReport({...d,from,to}):null;
+ const sales=profitReady?profit.sales:reportSum(d.sales,"total");
  const salesInvoiceIds=reportData.salesPaymentInvoiceIds||new Set(),purchaseInvoiceIds=reportData.purchasePaymentInvoiceIds||new Set();
  const salesPaid=d.payments.filter(x=>((x.invoice_id&&salesInvoiceIds.has(x.invoice_id))||(x.invoice_id===null&&x.party_account_type==="customer"&&!x.sales_return_id))).reduce((sum,x)=>sum+(x.direction==="in"?1:-1)*Number(x.amount||0),0);
  const purchasePaid=d.payments.filter(x=>((x.invoice_id&&purchaseInvoiceIds.has(x.invoice_id))||(x.invoice_id===null&&x.party_account_type==="supplier"&&!x.sales_return_id))).reduce((sum,x)=>sum+(x.direction==="out"?1:-1)*Number(x.amount||0),0);
@@ -1347,7 +1360,7 @@ function renderReports(from,to){
  const margin=d.salesItems.reduce((a,x)=>a+Number(x.line_total||0)-Number(x.quantity||0)*Number(x.unit_cost_snapshot||0),0);
  const netSales=sales-returns;
  const cards=[
-  ["إجمالي فواتير المبيعات",sales],["مرتجعات المبيعات",returns],["صافي المبيعات",netSales],["إجمالي فواتير المشتريات",purchases],["مرتجعات الموردين",purchaseReturnsTotal],
+  [profitReady?"المبيعات بعد تسويات الإلغاء":"إجمالي فواتير المبيعات",sales],["مرتجعات المبيعات",returns],["صافي المبيعات",netSales],["إجمالي فواتير المشتريات",purchases],["مرتجعات الموردين",purchaseReturnsTotal],
   ["تحصيلات العملاء خلال الفترة",salesPaid],["مدفوعات الموردين خلال الفترة",purchasePaid],
   ["المصروفات خلال الفترة",expense],
   ["المتبقي الحالي لفواتير المبيعات بالفترة",currentSalesDue],["المتبقي الحالي لفواتير المشتريات بالفترة",currentPurchaseDue]
@@ -1355,7 +1368,7 @@ function renderReports(from,to){
  const visibleCards=cards.filter((x,i)=>i<=2?permission("sales.view"):i===3?permission("purchases.view"):i===4?permission("purchases.view"):i===5?permission("payments.view")&&permission("sales.view"):i===6?permission("payments.view")&&permission("purchases.view"):i===7?permission("expenses.view"):i===8?permission("sales.view"):i===9?permission("purchases.view"):false);if(profitReady)visibleCards.unshift(["صافي الربح",profit.netProfit]);
  $("reportStats").innerHTML=visibleCards.map(x=>'<div class="stat"><strong>'+reportMoney(x[1])+'</strong><span>'+esc(x[0])+'</span></div>').join("");
  const parts=[];
- if(profitReady)parts.push('<div class="subpanel"><h4>صافي الربح للفترة</h4><p>إجمالي المبيعات: '+reportMoney(profit.sales)+' · مرتجعات المبيعات: '+reportMoney(profit.returns)+' · <strong>صافي المبيعات: '+reportMoney(profit.netSales)+'</strong></p><p>تكلفة البضاعة المباعة بعد عكس المرتجعات الصالحة واسترداد تكلفة التالف المرتجع للمورد: '+reportMoney(profit.costOfGoodsSold)+'</p><p>استرداد تكلفة البضاعة التالفة المرتجعة للمورد: '+reportMoney(profit.damagedSupplierReturnRecovery)+'</p><p>مجمل الربح: '+reportMoney(profit.grossProfit)+'</p><p>المصروفات المسجلة: '+reportMoney(profit.expenses)+'</p><p>خسائر المخزون المسجلة (تالف وعجز وتسويات نقص): '+reportMoney(profit.inventoryLosses)+'</p><p><strong>صافي الربح: '+reportMoney(profit.netProfit)+'</strong></p><p class="muted">الحساب حسب تاريخ كل حركة. تكلفة البيع مأخوذة من تكلفة المخزون وقت البيع، وتُخصم تكلفة مرتجع العميل الصالح لأنه يعود للمخزون القابل للبيع، بينما تظل تكلفة مرتجع العميل التالف ضمن تكلفة البضاعة. مرتجع المورد لا يُضاف كربح مستقل؛ لكن تكلفة البضاعة التالفة المرتجعة للمورد تُسترد من تكلفة البضاعة المباعة في حدود تكلفة البضاعة التالفة التي سبق أن رجعت من العملاء.</p></div>');
+ if(profitReady)parts.push('<div class="subpanel"><h4>صافي الربح للفترة</h4><p>إجمالي المبيعات: '+reportMoney(profit.sales)+' · إلغاءات فواتير البيع: '+reportMoney(profit.salesVoidAdjustments)+' · مرتجعات المبيعات: '+reportMoney(profit.returns)+' · <strong>صافي المبيعات: '+reportMoney(profit.netSales)+'</strong></p><p>تكلفة البضاعة المباعة بعد عكس المرتجعات الصالحة واسترداد تكلفة التالف المرتجع للمورد: '+reportMoney(profit.costOfGoodsSold)+'</p><p>استرداد تكلفة البضاعة التالفة المرتجعة للمورد: '+reportMoney(profit.damagedSupplierReturnRecovery)+'</p><p>مجمل الربح: '+reportMoney(profit.grossProfit)+'</p><p>المصروفات المسجلة: '+reportMoney(profit.expenses)+'</p><p>خسائر المخزون المسجلة (تالف وعجز وتسويات نقص): '+reportMoney(profit.inventoryLosses)+'</p><p><strong>صافي الربح: '+reportMoney(profit.netProfit)+'</strong></p><p class="muted">الحساب حسب تاريخ كل حركة. تكلفة البيع مأخوذة من تكلفة المخزون وقت البيع، وتُخصم تكلفة مرتجع العميل الصالح لأنه يعود للمخزون القابل للبيع، بينما تظل تكلفة مرتجع العميل التالف ضمن تكلفة البضاعة. مرتجع المورد لا يُضاف كربح مستقل؛ لكن تكلفة البضاعة التالفة المرتجعة للمورد تُسترد من تكلفة البضاعة المباعة في حدود تكلفة البضاعة التالفة التي سبق أن رجعت من العملاء.</p></div>');
  if(permission("sales.view"))parts.push('<div class="subpanel"><h4>المبيعات</h4><p>عدد الفواتير: '+d.sales.length+' · إجمالي الفواتير: '+reportMoney(sales)+' · المرتجعات: '+reportMoney(returns)+' · صافي المبيعات: '+reportMoney(netSales)+' · المتبقي الحالي: '+reportMoney(currentSalesDue)+'</p><p class="muted">المتبقي الحالي هو due_total الحالي للفواتير التي تاريخها داخل الفترة، وليس رصيدًا تاريخيًا كما كان في نهاية الفترة.</p></div>');
  if(permission("purchases.view"))parts.push('<div class="subpanel"><h4>المشتريات</h4><p>عدد الفواتير: '+d.purchases.length+' · الإجمالي: '+reportMoney(purchases)+' · المتبقي الحالي: '+reportMoney(currentPurchaseDue)+'</p><p class="muted">المتبقي الحالي للفواتير المختارة، وليس رصيدًا تاريخيًا كما كان في نهاية الفترة.</p></div>');
  if(permission("payments.view")){
@@ -1410,8 +1423,8 @@ function exportReportsExcel(){
   add("أرصدة_الحسابات_الحالية",map(d.partyBalances,x=>({الاسم:x.name,النوع:x.kind,الرصيد_الافتتاحي:x.opening_balance,إجمالي_المبيعات:x.sales_total,إجمالي_المشتريات:x.purchases_total,تحصيلات_العملاء:x.customer_payments,مدفوعات_الموردين:x.supplier_payments,المرتجعات:x.returns_total,مستحق_من_العملاء:x.customer_net_balance,مستحق_للموردين:x.supplier_net_balance})));
   add("كشف_الحساب_للفترة",map(d.statements,x=>({الحساب:x.party_name,التاريخ:x.entry_date,النوع:x.entry_type,المرجع:x.reference_no,مدين:x.debit,دائن:x.credit,البيان:x.description})));
  }
- const periodSummary=[{من_تاريخ:from,إلى_تاريخ:to,ملاحظة:"الأرصدة الحالية ليست تاريخية؛ المتبقي الحالي للفواتير لا يمثل رصيد نهاية الفترة."},{البند:"إجمالي المبيعات",القيمة:reportSum(d.sales,"total")},{البند:"إجمالي المشتريات",القيمة:reportSum(d.purchases,"total")},{البند:"المصروفات",القيمة:reportSum(d.expenses,"amount")},{البند:"قيمة المرتجعات",القيمة:reportSum(d.returns,"refund_total")}];
- if(profitReady){periodSummary.push({البند:"صافي المبيعات",القيمة:profit.netSales},{البند:"تكلفة البضاعة المباعة بعد عكس المرتجعات الصالحة واسترداد تكلفة التالف المرتجع للمورد",القيمة:profit.costOfGoodsSold},{البند:"استرداد تكلفة البضاعة التالفة المرتجعة للمورد",القيمة:profit.damagedSupplierReturnRecovery},{البند:"مجمل الربح",القيمة:profit.grossProfit},{البند:"خسائر المخزون المسجلة",القيمة:profit.inventoryLosses},{البند:"صافي الربح",القيمة:profit.netProfit});add("صافي_الربح",[{البند:"إجمالي المبيعات",القيمة:profit.sales},{البند:"مرتجعات المبيعات",القيمة:profit.returns},{البند:"صافي المبيعات",القيمة:profit.netSales},{البند:"تكلفة البضاعة المباعة بعد عكس المرتجعات الصالحة واسترداد تكلفة التالف المرتجع للمورد",القيمة:profit.costOfGoodsSold},{البند:"استرداد تكلفة البضاعة التالفة المرتجعة للمورد",القيمة:profit.damagedSupplierReturnRecovery},{البند:"مجمل الربح",القيمة:profit.grossProfit},{البند:"المصروفات المسجلة",القيمة:profit.expenses},{البند:"خسائر المخزون المسجلة",القيمة:profit.inventoryLosses},{البند:"صافي الربح",القيمة:profit.netProfit},{ملاحظة:"الحساب حسب تاريخ الحركة، ويشمل المصروفات المسجلة فقط. مرتجعات المشتريات تخفض المخزون/المشتريات ولا تضاف كربح مستقل."}]);}
+ const periodSummary=[{من_تاريخ:from,إلى_تاريخ:to,ملاحظة:"الأرصدة الحالية ليست تاريخية؛ المتبقي الحالي للفواتير لا يمثل رصيد نهاية الفترة."},{البند:profitReady?"المبيعات بعد تسويات الإلغاء":"إجمالي المبيعات",القيمة:profitReady?profit.sales:reportSum(d.sales,"total")},{البند:"إجمالي المشتريات",القيمة:reportSum(d.purchases,"total")},{البند:"المصروفات",القيمة:reportSum(d.expenses,"amount")},{البند:"قيمة المرتجعات",القيمة:reportSum(d.returns,"refund_total")}];
+ if(profitReady){periodSummary.push({البند:"صافي المبيعات",القيمة:profit.netSales},{البند:"تكلفة البضاعة المباعة بعد عكس المرتجعات الصالحة واسترداد تكلفة التالف المرتجع للمورد",القيمة:profit.costOfGoodsSold},{البند:"استرداد تكلفة البضاعة التالفة المرتجعة للمورد",القيمة:profit.damagedSupplierReturnRecovery},{البند:"مجمل الربح",القيمة:profit.grossProfit},{البند:"خسائر المخزون المسجلة",القيمة:profit.inventoryLosses},{البند:"صافي الربح",القيمة:profit.netProfit});add("صافي_الربح",[{البند:"المبيعات بعد تسويات الإلغاء",القيمة:profit.sales},{البند:"إلغاءات فواتير البيع خلال الفترة",القيمة:profit.salesVoidAdjustments},{البند:"مرتجعات المبيعات",القيمة:profit.returns},{البند:"صافي المبيعات",القيمة:profit.netSales},{البند:"تكلفة البضاعة المباعة بعد عكس المرتجعات الصالحة واسترداد تكلفة التالف المرتجع للمورد",القيمة:profit.costOfGoodsSold},{البند:"استرداد تكلفة البضاعة التالفة المرتجعة للمورد",القيمة:profit.damagedSupplierReturnRecovery},{البند:"مجمل الربح",القيمة:profit.grossProfit},{البند:"المصروفات المسجلة",القيمة:profit.expenses},{البند:"خسائر المخزون المسجلة",القيمة:profit.inventoryLosses},{البند:"صافي الربح",القيمة:profit.netProfit},{ملاحظة:"الحساب حسب تاريخ الحركة، ويشمل المصروفات المسجلة فقط. مرتجعات المشتريات تخفض المخزون/المشتريات ولا تضاف كربح مستقل."}]);}
  add("ملخص_الفترة",periodSummary);
  const filename="AlNesr_Reports_"+from+"_to_"+to+".xlsx";
  XLSX.writeFile(wb,filename);
