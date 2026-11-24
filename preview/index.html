@@ -1301,6 +1301,8 @@ function renderReports(from,to){
 function exportReportsExcel(){
  if(!window.XLSX)return message("globalMessage","مكتبة Excel لم تُحمّل. تحقق من اتصال الإنترنت ثم أعد تحميل الصفحة.");
  const d=reportData;if(!d||!Object.keys(d).length)return message("globalMessage","حمّل التقارير أولًا قبل التصدير.");
+ const from=$("reportFrom").value,to=$("reportTo").value;
+ if(!from||!to||from>to)return message("globalMessage","حدد نطاق تاريخ صحيح (من تاريخ إلى تاريخ) ثم أعد تحميل التقارير.");
  const profitReady=permission("sales.view")&&permission("purchases.view")&&permission("expenses.view")&&permission("inventory.view"),profit=profitReady?calculateNetProfitReport(d):null;
  const wb=XLSX.utils.book_new(),add=(name,rows)=>{if(Array.isArray(rows))XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),name);};
  const map=(rows,fn)=>rows.map(fn);
@@ -1331,7 +1333,6 @@ function exportReportsExcel(){
   add("أرصدة_الحسابات_الحالية",map(d.partyBalances,x=>({الاسم:x.name,النوع:x.kind,الرصيد_الافتتاحي:x.opening_balance,إجمالي_المبيعات:x.sales_total,إجمالي_المشتريات:x.purchases_total,تحصيلات_العملاء:x.customer_payments,مدفوعات_الموردين:x.supplier_payments,المرتجعات:x.returns_total,مستحق_من_العملاء:x.customer_net_balance,مستحق_للموردين:x.supplier_net_balance})));
   add("كشف_الحساب_للفترة",map(d.statements,x=>({الحساب:x.party_name,التاريخ:x.entry_date,النوع:x.entry_type,المرجع:x.reference_no,مدين:x.debit,دائن:x.credit,البيان:x.description})));
  }
- const from=$("reportFrom").value,to=$("reportTo").value;
  const periodSummary=[{من_تاريخ:from,إلى_تاريخ:to,ملاحظة:"الأرصدة الحالية ليست تاريخية؛ المتبقي الحالي للفواتير لا يمثل رصيد نهاية الفترة."},{البند:"إجمالي المبيعات",القيمة:reportSum(d.sales,"total")},{البند:"إجمالي المشتريات",القيمة:reportSum(d.purchases,"total")},{البند:"المصروفات",القيمة:reportSum(d.expenses,"amount")},{البند:"قيمة المرتجعات",القيمة:reportSum(d.returns,"refund_total")}];
  if(profitReady){periodSummary.push({البند:"صافي المبيعات",القيمة:profit.netSales},{البند:"تكلفة البضاعة المباعة بعد عكس المرتجعات الصالحة واسترداد تكلفة التالف المرتجع للمورد",القيمة:profit.costOfGoodsSold},{البند:"استرداد تكلفة البضاعة التالفة المرتجعة للمورد",القيمة:profit.damagedSupplierReturnRecovery},{البند:"مجمل الربح",القيمة:profit.grossProfit},{البند:"خسائر المخزون المسجلة",القيمة:profit.inventoryLosses},{البند:"صافي الربح",القيمة:profit.netProfit});add("صافي_الربح",[{البند:"إجمالي المبيعات",القيمة:profit.sales},{البند:"مرتجعات المبيعات",القيمة:profit.returns},{البند:"صافي المبيعات",القيمة:profit.netSales},{البند:"تكلفة البضاعة المباعة بعد عكس المرتجعات الصالحة واسترداد تكلفة التالف المرتجع للمورد",القيمة:profit.costOfGoodsSold},{البند:"استرداد تكلفة البضاعة التالفة المرتجعة للمورد",القيمة:profit.damagedSupplierReturnRecovery},{البند:"مجمل الربح",القيمة:profit.grossProfit},{البند:"المصروفات المسجلة",القيمة:profit.expenses},{البند:"خسائر المخزون المسجلة",القيمة:profit.inventoryLosses},{البند:"صافي الربح",القيمة:profit.netProfit},{ملاحظة:"الحساب حسب تاريخ الحركة، ويشمل المصروفات المسجلة فقط. مرتجعات المشتريات تخفض المخزون/المشتريات ولا تضاف كربح مستقل."}]);}
  add("ملخص_الفترة",periodSummary);
