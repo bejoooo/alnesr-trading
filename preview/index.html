@@ -471,6 +471,7 @@ $("connection").textContent="إعداد الاتصال مكتمل";show("setupNo
 $("loginForm").addEventListener("submit",async e=>{e.preventDefault();message("authMessage","جارٍ تسجيل الدخول...");const d=new FormData(e.currentTarget);const {error}=await client.auth.signInWithPassword({email:d.get("email"),password:d.get("password")});if(error)return message("authMessage",error.message);message("authMessage","");});
 $("signupForm").addEventListener("submit",async e=>{e.preventDefault();message("authMessage","جارٍ إنشاء الحساب...");const d=new FormData(e.currentTarget);const {error}=await client.auth.signUp({email:d.get("email"),password:d.get("password")});if(error)return message("authMessage",error.message);message("authMessage","تم إرسال طلب إنشاء حساب الموظف. أكّد بريدك الإلكتروني، ثم أرسل البريد لمالك نشاط النسر ليضيفك.");});
 
+const businessLoadPromises=new Set();
 let businessSwitchToken=0,businessSwitching=false,workspaceAuthGeneration=0;
 function clearBusinessRuntimeState(){
  products=[];archivedProducts=[];balances={};productListMode="active";
@@ -1467,7 +1468,6 @@ async function restoreBusinessBackup(){
  await loadWorkspace();
 }
 
-const businessLoadPromises=new Set();
 function trackBusinessLoader(fn){
  return function(...args){
   const task=Promise.resolve().then(()=>fn.apply(this,args));
