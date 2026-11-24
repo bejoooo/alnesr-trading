@@ -195,3 +195,23 @@
 - ظهرت دوال RPC ذات صلة بالميزات، منها pay_customer_credit وreceive_supplier_credit وpost_purchase_return_with_settlement وpost_purchase_with_method وowner_void_purchase_return. الدوال التي فُحصت لهذه المجموعة SECURITY DEFINER، ولها search_path مضبوط، ولا تملك anon صلاحية EXECUTE، بينما authenticated يملك EXECUTE. ظهر auth.uid() في أجسام الدوال المفحوصة، باستثناء النسخة القديمة ذات التسعة معاملات من post_sale_with_method؛ وهذه هي الواجهة القديمة التي سبق تحديدها كـwrapper يستدعي النسخة الأحدث ذات فحص الصلاحيات، وليست دليلًا منفردًا على ثغرة.
 
 هذه النتائج تؤكد وجود أجزاء مهمة من الميزات اللاحقة في قاعدة الاختبار، وتوضح أن الوصول المباشر للكتابة مقيد. لكنها لا تستعيد نصوص migrations الأصلية ولا تثبت تطابق كل جسم دالة مع الملف الذي ربما استُخدم وقت التنفيذ. لم يتم إدخال أي بيانات أو تعديل أي صلاحية أو بنية، ولم يتم فحص قاعدة الإنتاج.
+
+
+### مقارنة أسماء أعمدة schema.sql مع قاعدة الاختبار
+
+تمت مقارنة أسماء الأعمدة في الجداول الأساسية الستة عشر التي يعرّفها schema.sql مع information_schema.columns في قاعدة الاختبار. جميع أعمدة الجداول الأساسية موجودة؛ لم يظهر عمود أساسي مفقود بالاسم. لكن قاعدة الاختبار تحتوي **35 عمودًا إضافيًا** غير موجود في ملف التأسيس الأولي:
+
+- businesses: tagline.
+- parties: opening_balance_side, is_active, party_code.
+- purchase_invoices: paid_total, due_total, status, supplier_credit_applied_total.
+- sales_invoices: customer_credit_applied_total.
+- payments: sales_return_id, reversal_of_payment_id, posted_at, party_account_type, payment_code, purchase_return_id.
+- stock_movements: reversal_of_movement_id, posted_at, movement_code, stock_bucket.
+- sales_returns: status, posted_at, invoice_due_reduced_total.
+- sales_return_items: unit_price.
+- expenses: cash_transaction_id, status, voided_at, voided_by, expense_code.
+- cash_transactions: reversal_of_transaction_id, sales_return_id, payment_id, treasury_transfer_id, transaction_code, account_method, purchase_return_id.
+
+أما business_members وproducts وpurchase_items وsales_items وbusiness_settings وaudit_log، فلم يظهر اختلاف في أسماء الأعمدة ضمن هذه المقارنة.
+
+هذه مقارنة لأسماء الأعمدة فقط؛ لم تثبت تطابق أنواع البيانات أو القيود أو القيم الافتراضية أو الفهارس أو سياسات RLS أو أجسام الدوال. لكنها تؤكد أن schema.sql ليس نسخة كاملة حديثة من بنية قاعدة الاختبار، ولا ينبغي استخدامه وحده لإعادة إنشاء القاعدة الحالية.
