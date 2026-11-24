@@ -1187,7 +1187,7 @@ function calculateNetProfitReport(d){
  const damagedCustomerReturnCost=movements.filter(x=>x.movement_type==="customer_return_damaged").reduce((sum,x)=>sum+Number(x.quantity_delta||0)*Number(x.unit_cost||0),0);
  const damagedSupplierReturnRecovery=Math.min(damagedCustomerReturnCost,movements.filter(x=>x.movement_type==="purchase_return"&&x.source_type==="purchase_return"&&x.stock_bucket==="damaged").reduce((sum,x)=>sum-Number(x.quantity_delta||0)*Number(x.unit_cost||0),0));
  const costOfGoodsSold=baseCostOfGoodsSold-damagedSupplierReturnRecovery;
- const inventoryLosses=movements.filter(x=>["damage","loss","adjustment_out"].includes(x.movement_type)).reduce((sum,x)=>sum-Number(x.quantity_delta||0)*Number(x.unit_cost||0),0);
+ const inventoryLosses=movements.filter(x=>x.movement_type==="damage"||x.movement_type==="loss"||(x.movement_type==="adjustment_out"&&x.source_type==="manual_adjustment")||(x.movement_type==="adjustment_in"&&x.source_type==="adjustment_reversal")).reduce((sum,x)=>sum-Number(x.quantity_delta||0)*Number(x.unit_cost||0),0);
  const expenses=reportSum(d.expenses,"amount"),grossProfit=netSales-costOfGoodsSold,netProfit=grossProfit-expenses-inventoryLosses;
  return {sales,returns,netSales,costOfGoodsSold,damagedSupplierReturnRecovery,grossProfit,expenses,inventoryLosses,netProfit};
 }
