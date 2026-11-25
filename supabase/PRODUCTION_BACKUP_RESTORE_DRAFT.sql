@@ -494,4 +494,5 @@ commit;
 -- * verify legacy status/posted_at, stock_bucket, and account_method defaults.
 -- * verify wrong business, unknown/null version, non-empty business, missing references, and missing images fail closed.
 -- * verify transaction rollback leaves the target empty after any injected error.
+-- * verify customer_return_good rows preserve exported products.average_cost and average_cost_before without reapplying the AFTER INSERT trigger.
 -- Not executed on Test or Production.
