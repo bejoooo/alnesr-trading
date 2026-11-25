@@ -941,3 +941,12 @@
 - هذه مقارنة للتعريفات الحالية وليست استعادة للمصدر التاريخي المفقود. يلزم بناء ترقية additive مستقلة بعد مراجعة الاعتماديات.
 
 لم يتم تنفيذ SQL على أي قاعدة بيانات.
+
+
+### مراجعة same-business Foreign Keys في Test
+
+تم استخراج قيود PK/UNIQUE/FK مباشرة من Test، وإنشاء `supabase/SCHEMA_INTEGRITY_AUDIT_AR.md`.
+
+النتيجة: Test نفسها لا تفرض نشاطًا موحدًا على كل العلاقات الجديدة؛ بعض FKs في `purchase_returns`, `purchase_return_items`, `customer_credit_ledger`, snapshots، وروابط عكس الدفعات/حركات الخزنة تعتمد على UUID فقط. كما أن `purchase_items`, `payments`, `cash_transactions`, و`stock_movements` تفتقد مفاتيح `UNIQUE(business_id,id)` المطلوبة لبعض العلاقات المركبة.
+
+**القرار:** لا ننسخ قيود Test حرفيًا. حزمة Production يجب أن تضيف مفاتيح أم مناسبة وتفرض FKs مركبة same-business بعد فحص البيانات، دون حذف قيود قديمة تلقائيًا. لم يتم تنفيذ أي DDL.
