@@ -39,6 +39,18 @@ begin
   ) then
     raise exception 'Missing restore dependency columns';
   end if;
+
+  -- This trigger mutates product average_cost from the current value while replaying
+  -- customer-return movements. Restore must preserve the exported final product cost
+  -- and the movement's historical average_cost_before instead.
+  if not exists (
+    select 1 from pg_trigger t
+    where t.tgrelid='public.stock_movements'::regclass
+      and t.tgname='stock_movements_customer_return_average_cost'
+      and not t.tgisinternal and t.tgenabled='O'
+  ) then
+    raise exception 'Required customer-return average-cost trigger is missing or disabled';
+  end if;
 end
 $preflight$;
 
@@ -406,6 +418,12 @@ begin
         select * from jsonb_populate_recordset(null::public.sales_return_items,v_rows);
       end if;
     elsif tbl='stock_movements' then
+      -- Preserve the already-exported final product average_cost and each movement's
+      -- average_cost_before. The AFTER INSERT trigger would otherwise apply customer
+      -- return cost changes a second time during backup restoration.
+      alter table public.stock_movements
+        disable trigger stock_movements_customer_return_average_cost;
+
       select coalesce(jsonb_agg(value || jsonb_build_object(
         'posted_at',coalesce(nullif(value->>'posted_at',''),value->>'created_at'),
         'stock_bucket',coalesce(nullif(value->>'stock_bucket',''),'sellable')
@@ -427,6 +445,11 @@ begin
         insert into public.stock_movements
         select * from jsonb_populate_recordset(null::public.stock_movements,v_rows);
       end if;
+
+      -- Re-enable before leaving this table. If any statement errors, PostgreSQL rolls
+      -- back the trigger-state DDL together with the restore transaction.
+      alter table public.stock_movements
+        enable trigger stock_movements_customer_return_average_cost;
     elsif tbl='cash_transactions' then
       select coalesce(jsonb_agg(value || jsonb_build_object(
         'account_method',coalesce(nullif(value->>'account_method',''),'cash')
