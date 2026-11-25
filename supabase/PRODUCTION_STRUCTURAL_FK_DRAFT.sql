@@ -7,6 +7,47 @@
 
 begin;
 
+-- Stop explicitly if the prerequisite additive schema stage is incomplete.
+do $
+declare missing text;
+begin
+  select string_agg(format('%I.%I', v.tbl, v.col), ', ' order by v.tbl, v.col)
+    into missing
+  from (values
+    ('payments','business_id'),('payments','reversal_of_payment_id'),
+    ('cash_transactions','business_id'),('cash_transactions','payment_id'),
+    ('cash_transactions','treasury_transfer_id'),('cash_transactions','reversal_of_transaction_id'),
+    ('expenses','business_id'),('expenses','cash_transaction_id'),
+    ('stock_movements','business_id'),('stock_movements','reversal_of_movement_id'),
+    ('purchase_returns','business_id'),('purchase_returns','purchase_invoice_id'),('purchase_returns','supplier_id'),
+    ('purchase_return_items','business_id'),('purchase_return_items','return_id'),
+    ('purchase_return_items','purchase_item_id'),('purchase_return_items','product_id'),
+    ('customer_credit_ledger','business_id'),('customer_credit_ledger','customer_id'),
+    ('customer_credit_ledger','source_return_id'),('customer_credit_ledger','invoice_id'),
+    ('customer_credit_ledger','payment_id'),('customer_credit_ledger','reversal_of_id'),
+    ('purchase_invoice_cost_snapshots','business_id'),('purchase_invoice_cost_snapshots','invoice_id'),
+    ('purchase_invoice_cost_snapshots','product_id'),
+    ('stock_adjustment_cost_snapshots','business_id'),('stock_adjustment_cost_snapshots','movement_id'),
+    ('stock_adjustment_cost_snapshots','product_id'),
+    ('purchase_items','business_id'),('purchase_items','id'),
+    ('purchase_invoices','business_id'),('purchase_invoices','id'),
+    ('parties','business_id'),('parties','id'),
+    ('products','business_id'),('products','id'),
+    ('sales_returns','business_id'),('sales_returns','id'),
+    ('sales_invoices','business_id'),('sales_invoices','id'),
+    ('treasury_transfers','business_id'),('treasury_transfers','id')
+  ) as v(tbl,col)
+  where to_regclass(format('public.%I', v.tbl)) is null
+     or not exists (
+       select 1 from information_schema.columns ic
+       where ic.table_schema='public' and ic.table_name=v.tbl and ic.column_name=v.col
+     );
+
+  if missing is not null then
+    raise exception 'Preflight failed: prerequisite tables/columns missing: %', missing;
+  end if;
+end $;
+
 -- 1) Candidate composite-key targets not currently unique on (business_id, id).
 -- The single-column PKs remain in place.
 create unique index if not exists payments_business_id_id_uk
