@@ -439,3 +439,32 @@
 - لذلك يجب أن تكون تهيئة عدادات Production خطوة مستقلة قبل فتح أي كتابة جديدة: فحص الأكواد الحالية لكل نوع، ومقارنة أعداد السجلات والعدادات وسجل التدقيق، وتحديد قيمة بداية لا تعيد استخدام أي كود قائم. عند عدم إمكان إثبات القيمة الآمنة، يجب اعتماد قيمة بداية جديدة غير متعارضة بدل التخمين، مع اختبارها على Test أولًا. لا تنسخ صفوف عدادات Test إلى Production.
 - في Test الحالي، أعداد السجلات والعدادات لا تتطابق دائمًا (مثل فواتير الشراء وحركات المخزون)، وهو دليل عملي على أن `count(*)` ليس مرجعًا موثوقًا لموضع العداد. لا تغيّر دالة الترقيم أو الأكواد القائمة في هذه المرحلة.
 - لا توجد دوال `next_operation_code` أو Triggers الترقيم الجديدة في Production حتى الآن؛ لا تُنشأ قبل اكتمال حزمة الترقية واعتماد سياسة تهيئة العدادات.
+
+
+### مطابقة Views بين Test وProduction والصلاحيات (25 نوفمبر 2026)
+
+**Views المطلوبة للواجهة**
+- Test يحتوي `cash_balances`, `product_stock_balances`, `party_account_balances`, `party_account_statement`, `customer_credit_balances`, `customer_credit_return_balances`، بالإضافة إلى `daily_business_summary`.
+- Production يفتقد `customer_credit_balances` و`customer_credit_return_balances`، والـViews المشتركة أقدم في تعريفها.
+- جميع الـViews التي فُحصت في Test وProduction تحمل `security_invoker=true`. يجب الحفاظ على هذا الخيار عند إعادة إنشاء/تحديث أي View؛ لا تحوّلها إلى Security Definer أو View بامتيازات المالك كحل بديل.
+
+**الفروق الوظيفية المؤكدة**
+- `cash_balances`: Test يحسب `account_method='cash'` فقط؛ Production يجمع كل وسائل الدفع في رصيد واحد. يجب اعتماد تعريف Test في الترقية حتى لا تختلط أرصدة النقدية مع التحويل البنكي وInstaPay والمحافظ.
+- `product_stock_balances`: Test يفصل `sellable` عن `damaged` ويعرض `has_stock_history`, `out_of_stock`, `damaged_quantity`, `total_stock_quantity`. Production يجمع كل الحركات في كمية واحدة ولا يعرض هذه الحقول.
+- `party_account_balances`: Test يخصم مرتجعات المشتريات من رصيد المورد ويعرض `purchase_returns_total` و`customer_net_collected`، ويفصل دفعات العميل المستقلة ودفعات المورد. Production لا يخصم مرتجعات المشتريات ويستخدم منطق دفعات أقدم.
+- `party_account_statement`: Test يضيف `entry_timestamp`، ويعرض الدفعات المستقلة وعكوسها ومرتجعات المشتريات، ويستبعد المرتجعات الملغاة. Production لا يملك العمود أو هذه الدلالات الكاملة.
+- `customer_credit_balances` و`customer_credit_return_balances` جديدتان في Test وتعتمدان على `customer_credit_ledger`; لا يمكن إنشاءهما قبل الجدول وسياسة قراءته.
+- `daily_business_summary` في Test يستبعد المصروفات الملغاة والدفعات المرتبطة بمرتجعات ملغاة، ويفصل النقدية فقط في تدفقات الخزنة؛ Production أقدم ويحتاج مطابقة تعريفه كاملًا قبل نقله.
+
+**الصلاحيات وRLS**
+- Views في Test مثل `cash_balances`, `daily_business_summary`, `party_account_balances`, `party_account_statement`, `product_stock_balances` تمنح `anon` صلاحية على الـView، كما تمنح جداول أساسية متعددة `anon SELECT`. مع ذلك، هذه الجداول عليها RLS وسياسات القراءة فيها تعتمد على `has_business_permission`، بينما جداول الدفعات/المرتجعات الجديدة تستخدم سياسات `authenticated` صراحة. هذا ليس دليلًا وحده على تسرب صفوف، لكنه يمنح anon سطح وصول غير مطلوب ويجب تقييمه وإزالته من الحزمة الجديدة.
+- Production لديه أيضًا منح `anon` على الـViews المشتركة الخمسة. لا تنسخ هذه المنح تلقائيًا عند إنشاء/تحديث Views؛ الهدف `authenticated` فقط، مع RLS على الجداول الأساسية، وبدون `PUBLIC` أو `anon` إلا إذا ثبتت ضرورة موثقة.
+- `security_invoker=true` يجعل صلاحيات وسياسات الجداول الأساسية ذات صلة عند الاستعلام من الـView؛ لذلك يجب فحص GRANTs وRLS معًا، وليس الاكتفاء بوجود RLS.
+- لم يتم تغيير أي View أو GRANT أو سياسة في Test أو Production خلال هذه المراجعة.
+
+**ترتيب إنشاء/تحديث Views في حزمة الترقية**
+1. إضافة الأعمدة والجداول والقيود المطلوبة أولًا.
+2. تجهيز RLS والمنح الدنيا للجداول الأساسية.
+3. إنشاء/تحديث `cash_balances` و`product_stock_balances` و`party_account_balances` و`party_account_statement` و`daily_business_summary`.
+4. إنشاء `customer_credit_balances` و`customer_credit_return_balances` بعد إنشاء `customer_credit_ledger`.
+5. التحقق من أسماء الأعمدة وأنواعها وترتيبها مقابل استدعاءات الواجهة، ثم اختبار صلاحيات المالك والمدير والموظف ورفض anon.
