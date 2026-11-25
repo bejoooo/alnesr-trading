@@ -106,3 +106,10 @@
 أُضيف `verify_production_rpc_batch.sql` لفحص 10 توقيعات RPC الخاصة بالخزنة والمدفوعات والمصروفات والأرصدة الافتتاحية، والتحقق من SECURITY DEFINER و`search_path=''` وACL لـauthenticated/service_role ومنع anon وPUBLIC.
 
 **نتيجة التشغيل على Test: اجتاز.** الفاحص يقرأ كتالوج PostgreSQL فقط ولا ينفذ RPCs أو عمليات مالية. لا يثبت صحة العمليات أو أرصدة الخزنة، ويجب إعادة تشغيله على Production بعد الترقية المعتمدة.
+
+
+## 9. فاحص دفعة الفواتير والمرتجعات والمخزون
+
+أُضيف `verify_production_posting_rpc_batch.sql` لفحص 10 توقيعات RPC، بما فيها overloads القديمة والحديثة، والتحقق من SECURITY DEFINER و`search_path=''` وصلاحيات authenticated/service_role ومنع anon وPUBLIC.
+
+**نتيجة التشغيل على Test: اجتاز.** الفاحص قراءة كتالوجات فقط ولا ينفذ أي عملية مالية. لا يثبت صحة توزيع الخصومات أو أرصدة المخزون أو المرتجعات أو القيود المحاسبية.
