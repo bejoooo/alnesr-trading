@@ -1016,3 +1016,10 @@
 - `VERIFICATION_SCRIPTS_AUDIT_AR.md`: يوضح أن `verify_setup.sql` القديم فشل على Test بسبب توقيع `record_expense` القديم، وأنه لا يصلح كفاحص Preview الحالي.
 
 تم تشغيل الفاحص الجديد على Test واجتاز جميع الشروط الهيكلية. لم ينفذ أي DDL أو DML.
+
+
+### خريطة اعتماديات RPC ونتائج preflight
+
+- `RPC_DEPENDENCY_MAP_AR.md`: اعتماديات كل توقيع RPC من الجداول والـhelpers، مع ترتيب بناء الحزمة.
+- `PRODUCTION_PREFLIGHT_READONLY.sql`: فحص baseline قراءة فقط قبل/بعد الترقية.
+- `PRODUCTION_PREFLIGHT_RESULTS_AR.md`: نتائج فحص Production الحالية؛ 16 جدولًا أساسيًا، نشاط واحد وعضوية مالك نشطة واحدة، لا حركات تشغيلية، RLS مفعّل على كل الجداول، وbucket الصور خاص وفارغ.
