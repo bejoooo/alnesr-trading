@@ -45,7 +45,7 @@ begin
   end if;
 
   if (
-    select array_agg(column_name order by ordinal_position)
+    select array_agg(column_name::text order by ordinal_position)
     from information_schema.columns
     where table_schema='public' and table_name='cash_balances'
   ) is distinct from array['business_id','balance']::text[] then
@@ -53,7 +53,7 @@ begin
   end if;
 
   if (
-    select array_agg(udt_name order by ordinal_position)
+    select array_agg(udt_name::text order by ordinal_position)
     from information_schema.columns
     where table_schema='public' and table_name='cash_balances'
   ) is distinct from array['uuid','numeric']::text[] then
@@ -61,7 +61,7 @@ begin
   end if;
 
   if (
-    select array_agg(column_name order by ordinal_position)
+    select array_agg(column_name::text order by ordinal_position)
     from information_schema.columns
     where table_schema='public' and table_name='product_stock_balances'
   ) is distinct from array[
@@ -73,7 +73,7 @@ begin
   end if;
 
   if (
-    select array_agg(udt_name order by ordinal_position)
+    select array_agg(udt_name::text order by ordinal_position)
     from information_schema.columns
     where table_schema='public' and table_name='product_stock_balances'
   ) is distinct from array[
@@ -84,7 +84,7 @@ begin
   end if;
 
   if (
-    select array_agg(column_name order by ordinal_position)
+    select array_agg(column_name::text order by ordinal_position)
     from information_schema.columns
     where table_schema='public' and table_name='party_account_balances'
   ) is distinct from array[
@@ -97,7 +97,7 @@ begin
   end if;
 
   if (
-    select array_agg(udt_name order by ordinal_position)
+    select array_agg(udt_name::text order by ordinal_position)
     from information_schema.columns
     where table_schema='public' and table_name='party_account_balances'
   ) is distinct from array[
@@ -108,7 +108,7 @@ begin
   end if;
 
   if (
-    select array_agg(column_name order by ordinal_position)
+    select array_agg(column_name::text order by ordinal_position)
     from information_schema.columns
     where table_schema='public' and table_name='party_account_statement'
   ) is distinct from array[
@@ -119,7 +119,7 @@ begin
   end if;
 
   if (
-    select array_agg(udt_name order by ordinal_position)
+    select array_agg(udt_name::text order by ordinal_position)
     from information_schema.columns
     where table_schema='public' and table_name='party_account_statement'
   ) is distinct from array[
@@ -129,7 +129,7 @@ begin
   end if;
 
   if (
-    select array_agg(column_name order by ordinal_position)
+    select array_agg(column_name::text order by ordinal_position)
     from information_schema.columns
     where table_schema='public' and table_name='customer_credit_balances'
   ) is distinct from array['business_id','party_id','available_credit']::text[] then
@@ -137,7 +137,7 @@ begin
   end if;
 
   if (
-    select array_agg(udt_name order by ordinal_position)
+    select array_agg(udt_name::text order by ordinal_position)
     from information_schema.columns
     where table_schema='public' and table_name='customer_credit_balances'
   ) is distinct from array['uuid','uuid','numeric']::text[] then
@@ -145,7 +145,7 @@ begin
   end if;
 
   if (
-    select array_agg(column_name order by ordinal_position)
+    select array_agg(column_name::text order by ordinal_position)
     from information_schema.columns
     where table_schema='public' and table_name='customer_credit_return_balances'
   ) is distinct from array[
@@ -155,7 +155,7 @@ begin
   end if;
 
   if (
-    select array_agg(udt_name order by ordinal_position)
+    select array_agg(udt_name::text order by ordinal_position)
     from information_schema.columns
     where table_schema='public' and table_name='customer_credit_return_balances'
   ) is distinct from array['uuid','uuid','uuid','numeric','numeric']::text[] then
