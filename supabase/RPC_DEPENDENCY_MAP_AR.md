@@ -162,3 +162,16 @@
 ### ملاحظة على سلامة عدادات الأكواد
 
 عند غياب صف العداد، لا يكفي `count(*)+1` لتحديد الرقم التالي؛ توجد سجلات محذوفة/فجوات تاريخية في Test. المسودة الجديدة تستخدم أكبر لاحقة كود قائمة أو عدد السجلات، أيهما أكبر، لتهيئة صف العداد لأول مرة. لا تنفذ هذه المسودة على قاعدة Test الحالية؛ فهي تحتوي بيانات فعلية في `operation_counters` والجداول التشغيلية.
+
+
+### تحديث 25 نوفمبر 2026 — اعتماديات Views قبل استعادة RPCs
+
+تم استخراج تعريفات Views النهائية من Test ومقارنتها مع Production. يجب تثبيت هذه الطبقة بعد الجداول والأعمدة والقيود وقبل RPCs التي تعتمد عليها:
+
+- `cash_balances` يعتمد على `cash_transactions.account_method` ويجب أن يمثل النقدية فقط؛ `create_treasury_transfer` وبعض عمليات الخزنة تعتمد على هذا الرصيد.
+- `product_stock_balances` يعتمد على `stock_movements.stock_bucket` ويفصل sellable/damaged، ويقدم حقولًا تقرؤها الواجهة.
+- `party_account_balances` يعتمد على `payments.sales_return_id` و`party_account_type` وعلى `purchase_returns` وحقول حالتها/تسويتها؛ تعتمد عليه عمليات مرتجعات المشتريات وبعض التسويات.
+- `party_account_statement` يعتمد على حقول payment code/reversal/posted_at والدفعات المستقلة، وعلى حالتي مرتجعات البيع والشراء؛ يجب الحفاظ على عمود `entry_timestamp` في آخر الإسقاط.
+- `customer_credit_balances` و`customer_credit_return_balances` يعتمدان على `customer_credit_ledger` وسياسة قراءته. لا تنشئهما قبل الجدول وسياسة RLS.
+
+Production لديه Views الأربعة الأولى بتعريفات أقدم، ولا يحتوي العرضين الخاصين برصيد العميل الدائن. جميع الستة في Test تحمل `security_invoker=true`. لا تستخدم Views مالكها يتجاوز RLS؛ يجب إبقاء `security_invoker=true` في النسخة الإنتاجية.
