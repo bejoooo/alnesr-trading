@@ -310,6 +310,101 @@ begin
     raise exception 'إحدى الدفعات مرتبطة بمرتجع مشتريات غير موجود في النسخة';
   end if;
 
+  -- Polymorphic invoice/return references must agree with the actual party and direction.
+  if exists (
+    select 1 from jsonb_array_elements(p_backup->'tables'->'payments') p(value)
+    where
+      (nullif(p.value->>'sales_return_id','') is not null and not exists (
+        select 1 from jsonb_array_elements(p_backup->'tables'->'sales_returns') r(value)
+        where r.value->>'id'=p.value->>'sales_return_id'
+          and r.value->>'customer_id'=p.value->>'party_id'
+          and r.value->>'sales_invoice_id'=p.value->>'invoice_id'
+          and p.value->>'direction'='out'
+      ))
+      or
+      (nullif(p.value->>'purchase_return_id','') is not null and not exists (
+        select 1 from jsonb_array_elements(p_backup->'tables'->'purchase_returns') r(value)
+        where r.value->>'id'=p.value->>'purchase_return_id'
+          and r.value->>'supplier_id'=p.value->>'party_id'
+          and r.value->>'purchase_invoice_id'=p.value->>'invoice_id'
+          and p.value->>'direction'='in'
+      ))
+      or
+      (nullif(p.value->>'invoice_id','') is not null and (
+        (exists (select 1 from jsonb_array_elements(p_backup->'tables'->'sales_invoices') i(value)
+          where i.value->>'id'=p.value->>'invoice_id')
+         and not exists (select 1 from jsonb_array_elements(p_backup->'tables'->'sales_invoices') i(value)
+          where i.value->>'id'=p.value->>'invoice_id' and i.value->>'customer_id'=p.value->>'party_id'))
+        or
+        (exists (select 1 from jsonb_array_elements(p_backup->'tables'->'purchase_invoices') i(value)
+          where i.value->>'id'=p.value->>'invoice_id')
+         and not exists (select 1 from jsonb_array_elements(p_backup->'tables'->'purchase_invoices') i(value)
+          where i.value->>'id'=p.value->>'invoice_id' and i.value->>'supplier_id'=p.value->>'party_id'))
+      ))
+  ) then
+    raise exception 'دفعة مرتبطة بفاتورة أو مرتجع يخص طرفًا آخر أو باتجاه غير صحيح';
+  end if;
+
+  if exists (
+    select 1 from jsonb_array_elements(p_backup->'tables'->'cash_transactions') c(value)
+    where
+      (nullif(c.value->>'sales_return_id','') is not null and not exists (
+        select 1 from jsonb_array_elements(p_backup->'tables'->'sales_returns') r(value)
+        where r.value->>'id'=c.value->>'sales_return_id'
+          and r.value->>'customer_id'=c.value->>'party_id'
+          and r.value->>'sales_invoice_id'=c.value->>'invoice_id'
+          and c.value->>'direction'='out'
+      ))
+      or
+      (nullif(c.value->>'purchase_return_id','') is not null and not exists (
+        select 1 from jsonb_array_elements(p_backup->'tables'->'purchase_returns') r(value)
+        where r.value->>'id'=c.value->>'purchase_return_id'
+          and r.value->>'supplier_id'=c.value->>'party_id'
+          and r.value->>'purchase_invoice_id'=c.value->>'invoice_id'
+          and c.value->>'direction'='in'
+      ))
+      or
+      (nullif(c.value->>'payment_id','') is not null and not exists (
+        select 1 from jsonb_array_elements(p_backup->'tables'->'payments') p(value)
+        where p.value->>'id'=c.value->>'payment_id'
+          and p.value->>'amount'=c.value->>'amount'
+          and p.value->>'direction'=c.value->>'direction'
+          and p.value->>'party_id' is not distinct from c.value->>'party_id'
+          and lower(p.value->>'method')=lower(c.value->>'account_method')
+          and lower(c.value->>'account_method')='cash'
+      ))
+  ) then
+    raise exception 'حركة الخزنة لا تطابق الدفعة أو المرتجع المرتبط بها';
+  end if;
+
+  -- A cash leg must exist exactly once for each transfer touching the cash account;
+  -- non-cash-only transfers must not create a cash transaction.
+  if exists (
+    select 1
+    from jsonb_array_elements(p_backup->'tables'->'treasury_transfers') t(value)
+    where (
+      (t.value->>'source_method'='cash' or t.value->>'destination_method'='cash')
+      and (select count(*) from jsonb_array_elements(p_backup->'tables'->'cash_transactions') c(value)
+        where c.value->>'treasury_transfer_id'=t.value->>'id'
+          and c.value->>'amount'=t.value->>'amount'
+          and c.value->>'account_method'='cash'
+          and c.value->>'direction'=case when t.value->>'source_method'='cash' then 'out' else 'in' end)<>1
+    ) or (
+      t.value->>'source_method'<>'cash' and t.value->>'destination_method'<>'cash'
+      and exists (select 1 from jsonb_array_elements(p_backup->'tables'->'cash_transactions') c(value)
+        where c.value->>'treasury_transfer_id'=t.value->>'id')
+    ) or (
+      nullif(t.value->>'reversal_of_transfer_id','') is not null
+      and not exists (select 1 from jsonb_array_elements(p_backup->'tables'->'treasury_transfers') original(value)
+        where original.value->>'id'=t.value->>'reversal_of_transfer_id'
+          and original.value->>'source_method'=t.value->>'destination_method'
+          and original.value->>'destination_method'=t.value->>'source_method'
+          and original.value->>'amount'=t.value->>'amount')
+    )
+  ) then
+    raise exception 'تحويل الخزنة أو حركته النقدية أو عكسه غير متطابق';
+  end if;
+
   if exists (
     select 1 from jsonb_array_elements(p_backup->'tables'->'payments') p(value)
     where nullif(p.value->>'invoice_id','') is not null
