@@ -2267,3 +2267,10 @@ RLS مفعّل على الجداول العشرة كلها. جداول النس�
 تنبيه: النسخ v2 الأقدم من migration 061 قد لا تحتوي `stock_movements.average_cost_before`. يمكن حفظ الحالة الحالية، لكن إلغاء مرتجع جيد قديم يظل ممنوعًا بأمان إذا لم يكن متوسط التكلفة السابق مسجلًا. التعديل موثق في `supabase/PRODUCTION_BACKUP_RESET_AUDIT_AR.md`.
 
 لم يتم تنفيذ استعادة فعلية أو تعطيل Trigger في أي قاعدة؛ التحقق حتى الآن ساكن ومن خلال metadata في Test فقط.
+
+
+### اشتراط قيود same-business قبل استعادة النسخ
+
+أضيف إلى Preflight في `PRODUCTION_BACKUP_RESTORE_DRAFT.sql` فحص fail-closed للـ20 composite FK التي تنشئها `PRODUCTION_STRUCTURAL_FK_DRAFT.sql`. لا تُعتمد RPC الاستعادة قبل وجود هذه القيود بحالة validated؛ فهي تمنع ربط دفعة/حركة/مرتجع/مصروف/لقطة تكلفة بسجل من نشاط آخر. الفحص الحالي لـProduction أظهر أن هذه القيود الجديدة لم تُطبق بعد.
+
+لم يتم تنفيذ أي FK أو استعادة؛ المسودات فقط تم تعديلها وتوثيقها. راجع `supabase/PRODUCTION_BACKUP_RESET_AUDIT_AR.md` للتفاصيل.
