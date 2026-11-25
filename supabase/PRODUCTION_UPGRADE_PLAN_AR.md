@@ -196,3 +196,8 @@ Preview تستدعي 37 اسم RPC فريدًا، وTest تغطيها عبر 39 
 ### اكتمال جرد SECURITY DEFINER في Production
 
 أُضيف `SECURITY_DEFINER_PRODUCTION_REVIEW_AR.md` بعد استخراج كل الدوال العشرين في public، ACL، وsearch_path. لا يوجد EXECUTE لـanon/PUBLIC في هذه الدوال، لكن 16 دالة تستخدم public أو public, pg_temp. لا يتم توحيد الإعداد آليًا؛ تُراجع كل دالة منفردة، وخاصة restore_business_backup التي تستخدم dynamic SQL.
+
+
+## مراجعة استدعاءات الواجهة المباشرة
+
+تم توثيق `PREVIEW_DATA_ACCESS_AUDIT_AR.md`. الواجهة تقرأ 18 جدولًا و6 Views مباشرة، وتكتب مباشرة إلى `businesses`, `products`, و`parties`، وتستخدم bucket `product-images`. يجب إضافة `businesses.tagline` والحفاظ على سياسات الكتابة المباشرة الحالية؛ لا نحول هذه المسارات إلى RPC-only ضمن هذه الترقية دون تعديل الواجهة.
