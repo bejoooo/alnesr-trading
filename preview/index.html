@@ -1672,8 +1672,8 @@ async function restoreBusinessBackup(){
  message("globalMessage","تم تجهيز الصور. جارٍ استعادة بيانات النشاط والتحقق من العلاقات...");
  const {data,error}=await client.rpc("restore_business_backup",{p_business_id:activeBusinessId,p_backup:backup});
  if(error){
-  const clean=await cleanupUploaded();
-  return message("globalMessage",clean?"فشلت استعادة البيانات وتم تنظيف الصور التي رُفعت. "+(error.message||""):"فشلت الاستعادة وتعذر تنظيف بعض الصور المرفوعة. لم تُستعد بيانات النشاط؛ تواصل مع الدعم قبل إعادة المحاولة.");
+  console.error("Backup restore result is uncertain; uploaded images are retained to avoid deleting files that may now be referenced by restored products.",error);
+  return message("globalMessage","تعذر تأكيد نتيجة الاستعادة من الخادم. احتفظنا بالصور المرفوعة لتجنب حذف صور قد تكون ارتبطت بمنتجات تمت استعادتها. لا تعِد المحاولة الآن؛ أعد تحميل النشاط وتحقق من وجود البيانات والصور أولًا، وإذا لم تكتمل الاستعادة نراجع الملفات المؤقتة بعد التأكد.");
  }
  $("backupFile").value="";
  message("globalMessage","تمت استعادة البيانات والصور. جارٍ تحديث الواجهة...");
