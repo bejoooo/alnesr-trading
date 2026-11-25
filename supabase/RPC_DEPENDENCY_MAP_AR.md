@@ -139,3 +139,26 @@
 - اختلاف business_id بين cash_transaction والدفعة المرتبطة أو treasury_transfer.
 
 **النتيجة: صفر** في كل واحدة من مجموعات الفحص العشر. هذه النتائج تخص البيانات الموجودة في Test لحظة الفحص فقط، ولا تثبت صحة كل سيناريو مستقبلي أو تغني عن اختبارات المعاملات بعد إضافة القيود.
+
+
+### تحديث 25 نوفمبر 2026 — اعتماديات توليد الأكواد والـTriggers
+
+تم استخراج مواضع استدعاء `next_operation_code` من تعريفات Test النهائية. تعتمد عليها هذه العمليات مباشرة:
+- `post_purchase_with_method` و`post_purchase` لتوليد كود فاتورة الشراء.
+- `post_sale_with_method` و`post_sale` لتوليد كود فاتورة البيع.
+- نسختا `post_sales_return` لتوليد كود مرتجع المبيعات.
+- `post_purchase_return` و`post_purchase_return_with_settlement` لتوليد كود مرتجع المشتريات.
+- `assign_business_record_code()` لتوليد أكواد الأطراف والدفعات وحركات الخزنة والمخزون والتحويلات والمصروفات عبر Triggers.
+
+لا يوجد Trigger مستقل لـ`purchase_returns.return_no` أو `sales_returns.return_no`؛ RPCs الخاصة بالمرتجعات تطلب الكود من `next_operation_code` قبل إدخال السجل. يجب أن تظل هذه الاستدعاءات موجودة عند نقل RPCs.
+
+### نتيجة مطابقة Triggers Production مع Test
+
+- Production يحتوي 9 Triggers غير داخلية، وTest يحتوي 17.
+- الثمانية الناقصة في Production هي: `cash_transactions_assign_code`, `expenses_assign_code`, `parties_assign_code`, `payments_assign_code`, `stock_movements_assign_code`, `treasury_transfers_assign_code`, `trg_auto_purchase_invoice_number`, `trg_auto_sales_invoice_number`.
+- Triggers الحماية الحالية في Production موجودة بالفعل؛ لا تنشئها المسودة مرة ثانية.
+- `stock_movements_customer_return_average_cost` موجود في Production، لكن تعريف دالته يختلف عن Test لأنه لا يسجل `average_cost_before`. يجب إضافة العمود ثم توحيد الدالة قبل اعتماد إلغاء مرتجع العميل.
+
+### ملاحظة على سلامة عدادات الأكواد
+
+عند غياب صف العداد، لا يكفي `count(*)+1` لتحديد الرقم التالي؛ توجد سجلات محذوفة/فجوات تاريخية في Test. المسودة الجديدة تستخدم أكبر لاحقة كود قائمة أو عدد السجلات، أيهما أكبر، لتهيئة صف العداد لأول مرة. لا تنفذ هذه المسودة على قاعدة Test الحالية؛ فهي تحتوي بيانات فعلية في `operation_counters` والجداول التشغيلية.
