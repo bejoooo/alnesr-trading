@@ -194,3 +194,20 @@ Production لديه Views الأربعة الأولى بتعريفات أقدم�
 اعتمادياتها تشمل `business_members`, `parties`, `payments`, `cash_transactions`, `expenses`, `treasury_transfers`, `audit_log`، والـViews `cash_balances` و`party_account_balances`، بالإضافة إلى `has_business_permission` و`next_operation_code` وTriggers توليد الأكواد.
 
 كل الدوال العشر في Test SECURITY DEFINER مع `search_path=''` وتتحقق من هوية المستخدم والصلاحية، ولا تستخدم SQL ديناميكي. يجب اختبار اتساق قيد المصروف مع حركة الخزنة، وعدم تجاوز رصيد حساب الخزنة، ومنع عكس التحويل أكثر من مرة، والتأكد من أن الرصيد المعروض بعد كل عملية يطابق مجموع الحركات.
+
+
+### تحديث 25 نوفمبر 2026 — دفعة RPCs الفواتير والمرتجعات والمخزون
+
+أُنشئت `PRODUCTION_RPC_POSTING_RETURNS_STOCK_DRAFT.sql` وتشمل:
+- `post_purchase_with_method`
+- `post_sale_with_method` بالتوقيعين الحديث والقديم (wrapper)
+- `post_sales_return` بالتوقيعين
+- `post_purchase_return_with_settlement`
+- `post_stock_adjustment`
+- `post_stock_condition_transfer`
+- `pay_customer_credit`
+- `receive_supplier_credit`
+
+اعتمادياتها تشمل الجداول التشغيلية الجديدة والحقول المرتبطة بالدفعات والمرتجعات والرصيد الدائن، والـViews `party_account_balances`, `product_stock_balances`, `customer_credit_balances`, `customer_credit_return_balances`، بالإضافة إلى `has_business_permission`, `next_operation_code`، Triggers توليد الأكواد وتحديث متوسط التكلفة.
+
+يجب اختبار كل سيناريو مع قيود same-business، بما فيها إلغاء المرتجع وعكس حركات المخزون/الدفعات، وحالات المرتجع التالف، وتطبيق رصيد العميل الدائن على فاتورة، وصرفه، واستلام رصيد دائن من مورد. لا تعتبر مطابقة تعريف الدالة دليلًا على صحة الحسابات المالية.
