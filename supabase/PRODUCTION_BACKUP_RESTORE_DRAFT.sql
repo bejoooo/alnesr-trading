@@ -281,6 +281,38 @@ begin
         select * from jsonb_populate_recordset(null::public.audit_log,p_backup->'tables'->tbl)
         on conflict (id) do nothing;
       end if;
+    elsif tbl='parties' then
+      -- Very old v2 exports may predate party archiving; such parties were active.
+      select coalesce(jsonb_agg(value || jsonb_build_object(
+        'is_active',coalesce(nullif(value->>'is_active','')::boolean,true)
+      )),'[]'::jsonb) into v_rows
+      from jsonb_array_elements(p_backup->'tables'->tbl) as x(value);
+      if jsonb_array_length(v_rows)>0 then
+        insert into public.parties
+        select * from jsonb_populate_recordset(null::public.parties,v_rows);
+      end if;
+    elsif tbl='purchase_invoices' then
+      -- Supplier-credit application did not exist in older v2 exports.
+      select coalesce(jsonb_agg(value || jsonb_build_object(
+        'supplier_credit_applied_total',
+        coalesce(nullif(value->>'supplier_credit_applied_total','')::numeric,0)
+      )),'[]'::jsonb) into v_rows
+      from jsonb_array_elements(p_backup->'tables'->tbl) as x(value);
+      if jsonb_array_length(v_rows)>0 then
+        insert into public.purchase_invoices
+        select * from jsonb_populate_recordset(null::public.purchase_invoices,v_rows);
+      end if;
+    elsif tbl='sales_invoices' then
+      -- Customer-credit application did not exist in older v2 exports.
+      select coalesce(jsonb_agg(value || jsonb_build_object(
+        'customer_credit_applied_total',
+        coalesce(nullif(value->>'customer_credit_applied_total','')::numeric,0)
+      )),'[]'::jsonb) into v_rows
+      from jsonb_array_elements(p_backup->'tables'->tbl) as x(value);
+      if jsonb_array_length(v_rows)>0 then
+        insert into public.sales_invoices
+        select * from jsonb_populate_recordset(null::public.sales_invoices,v_rows);
+      end if;
     elsif tbl='expenses' then
       select coalesce(jsonb_agg(value || jsonb_build_object(
         'status',coalesce(nullif(value->>'status',''),'posted')
