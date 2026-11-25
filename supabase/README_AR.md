@@ -964,3 +964,16 @@
 جرد Edge Functions كشف دالة واحدة في Production باسم `app-preview`، حالتها ACTIVE والإصدار 3 و`verify_jwt=false`. فحص كودها أظهر أنها تقدم HTML عامًا للواجهة القديمة (الإصدار 1.1.0) وتتصل بقاعدة Production. أما `preview/index.html` الحالي فهو الإصدار 1.2.8 ويتصل بقاعدة Test، ولا توجد Edge Functions في Test.
 
 هذا مسار نشر قائم لم يكن ظاهرًا في نقطة دخول GitHub Pages وحدها. تم توثيقه في `PRODUCTION_UPGRADE_PLAN_AR.md`. لا يتم استبدال الدالة أو حذفها؛ يجب الحفاظ عليها كمسار رجوع وتحديد هل سيكون التحويل النهائي عبر Edge Function أم GitHub Pages.
+
+
+### مراجعة Supabase Advisors وEdge Function
+
+تم إنشاء `supabase/SECURITY_AND_DEPLOYMENT_AUDIT_AR.md` بعد إعادة فحص Security/Performance/Health Advisors للمشروعين، وجرد Edge Functions وقراءة كود `app-preview`.
+
+- Test: 48 SECURITY DEFINER تحذيرًا لـauthenticated، و4 جداول RLS بلا Policies (منها `operation_counters` وثلاثة جداول نسخ اختبارية)، وتحذير leaked password protection.
+- Production: 17 تحذير SECURITY DEFINER لـauthenticated، وتحذير leaked password protection.
+- Performance: 14 فهرسًا غير مستخدم في Test و32 في Production؛ لا حذف تلقائي بسبب قلة النشاط.
+- Health: لا نتائج.
+- Production بها Edge Function واحدة `app-preview` (ACTIVE v3, verify_jwt=false) تقدم HTML عامًا للواجهة الأقدم؛ لم يظهر مفتاح service-role فعلي في النص، والدالة لم تُعدل.
+
+لا يعني تحذير SECURITY DEFINER وجود ثغرة تلقائيًا؛ يظل فحص جسم الدالة وACL/search_path شرطًا قبل الترقية. لم يتم تعديل Auth أو Edge Functions أو قواعد البيانات.
