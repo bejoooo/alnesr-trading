@@ -1615,7 +1615,8 @@ async function restoreBusinessBackup(){
   }
  }catch(e){return message("globalMessage",e.message||"بيانات الصور في النسخة غير صالحة.");}
  if(images.length!==productPaths.size)return message("globalMessage","النسخة لا تحتوي كل صور المنتجات المشار إليها. لن تتم الاستعادة حتى لا تظهر منتجات بصور مفقودة.");
- const legacyWarning=backup.format_version==="alnesr-business-backup-v2"?"\n\nملاحظة: هذه نسخة قديمة لا تحتوي مرتجعات المشتريات وسجل الرصيد الدائن وتحويلات الخزنة؛ ستُستعاد الجداول المتاحة فيها فقط، وستظل هذه الجداول الجديدة فارغة.":"";\n if(!confirm("تنبيه: الاستعادة متاحة فقط إذا كانت جداول بيانات هذا النشاط فارغة. سيتم رفع صور المنتجات الخاصة أولًا ثم استعادة البيانات داخل معاملة واحدة."+legacyWarning+"\n\nهل تريد المتابعة؟"))return;
+ const legacyWarning=backup.format_version==="alnesr-business-backup-v2"?"\n\nملاحظة: هذه نسخة قديمة لا تحتوي مرتجعات المشتريات وسجل الرصيد الدائن وتحويلات الخزنة؛ ستُستعاد الجداول المتاحة فيها فقط، وستظل هذه الجداول الجديدة فارغة.":"";
+ if(!confirm("تنبيه: الاستعادة متاحة فقط إذا كانت جداول بيانات هذا النشاط فارغة. سيتم رفع صور المنتجات الخاصة أولًا ثم استعادة البيانات داخل معاملة واحدة."+legacyWarning+"\n\nهل تريد المتابعة؟"))return;
  message("globalMessage","جارٍ تجهيز صور النسخة داخل التخزين الخاص...");
  const uploaded=[];
  const cleanupUploaded=async()=>{
