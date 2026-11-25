@@ -219,6 +219,33 @@ begin
     raise exception 'بنود مرتجعات المشتريات تحتوي مراجع غير موجودة في النسخة';
   end if;
 
+  -- Reconcile persisted return totals with their detail rows before restoring.
+  if exists (
+    select 1
+    from jsonb_array_elements(p_backup->'tables'->'purchase_returns') r(value)
+    where round(coalesce((select sum(nullif(i.value->>'line_total','')::numeric)
+      from jsonb_array_elements(p_backup->'tables'->'purchase_return_items') i(value)
+      where i.value->>'return_id'=r.value->>'id'),0),2)
+      <> round(coalesce(nullif(r.value->>'total','')::numeric,0),2)
+      or coalesce(nullif(r.value->>'invoice_due_reduced_total','')::numeric,0)
+         > coalesce(nullif(r.value->>'total','')::numeric,0)
+  ) then
+    raise exception 'إجمالي مرتجع المشتريات أو تخفيض مستحق الفاتورة لا يطابق بنوده';
+  end if;
+
+  if exists (
+    select 1
+    from jsonb_array_elements(p_backup->'tables'->'sales_returns') r(value)
+    where round(coalesce((select sum(nullif(i.value->>'refund_amount','')::numeric)
+      from jsonb_array_elements(p_backup->'tables'->'sales_return_items') i(value)
+      where i.value->>'return_id'=r.value->>'id'),0),2)
+      <> round(coalesce(nullif(r.value->>'refund_total','')::numeric,0),2)
+      or coalesce(nullif(r.value->>'invoice_due_reduced_total','')::numeric,0)
+         > coalesce(nullif(r.value->>'refund_total','')::numeric,0)
+  ) then
+    raise exception 'إجمالي مرتجع المبيعات أو تخفيض مستحق الفاتورة لا يطابق بنوده';
+  end if;
+
   -- Enforce the same logical parent-child relationships as the posting RPCs.
   -- Same-business FKs alone do not prove that a return item belongs to the invoice
   -- referenced by its parent return, or that the returned product matches its source item.
