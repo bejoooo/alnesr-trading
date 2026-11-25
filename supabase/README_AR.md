@@ -957,3 +957,10 @@
 تم تنفيذ `COUNT(*)` على كل الجداول الأساسية الـ16 في `public` بقاعدة Production. النتيجة: صف واحد في `businesses` وصف واحد في `business_members`، وصفر في الجداول التشغيلية الـ14 الأخرى التي ظهرت في الجرد. تم حفظ الأرقام في `supabase/PRODUCTION_BASELINE_AR.md` لتكون مقارنة قبل/بعد الترقية.
 
 هذا لا يشمل سجلات Auth الداخلية أو إعدادات Auth أو ملفات Storage، ويجب فحصها منفصلًا. لم تتم أي كتابة على Production.
+
+
+### اكتشاف مسار نشر Production إضافي عبر Edge Function
+
+جرد Edge Functions كشف دالة واحدة في Production باسم `app-preview`، حالتها ACTIVE والإصدار 3 و`verify_jwt=false`. فحص كودها أظهر أنها تقدم HTML عامًا للواجهة القديمة (الإصدار 1.1.0) وتتصل بقاعدة Production. أما `preview/index.html` الحالي فهو الإصدار 1.2.8 ويتصل بقاعدة Test، ولا توجد Edge Functions في Test.
+
+هذا مسار نشر قائم لم يكن ظاهرًا في نقطة دخول GitHub Pages وحدها. تم توثيقه في `PRODUCTION_UPGRADE_PLAN_AR.md`. لا يتم استبدال الدالة أو حذفها؛ يجب الحفاظ عليها كمسار رجوع وتحديد هل سيكون التحويل النهائي عبر Edge Function أم GitHub Pages.
