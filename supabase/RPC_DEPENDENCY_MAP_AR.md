@@ -175,3 +175,22 @@
 - `customer_credit_balances` و`customer_credit_return_balances` يعتمدان على `customer_credit_ledger` وسياسة قراءته. لا تنشئهما قبل الجدول وسياسة RLS.
 
 Production لديه Views الأربعة الأولى بتعريفات أقدم، ولا يحتوي العرضين الخاصين برصيد العميل الدائن. جميع الستة في Test تحمل `security_invoker=true`. لا تستخدم Views مالكها يتجاوز RLS؛ يجب إبقاء `security_invoker=true` في النسخة الإنتاجية.
+
+
+### تحديث 25 نوفمبر 2026 — أول مجموعة RPCs مالية
+
+أُنشئت `PRODUCTION_RPC_TREASURY_PAYMENTS_DRAFT.sql` وتضم 10 توقيعات:
+- `record_cash_opening_balance`
+- `record_expense`
+- `record_invoice_payment`
+- `record_standalone_party_payment`
+- `record_treasury_deposit`
+- `record_treasury_withdrawal`
+- `create_treasury_transfer`
+- `reverse_treasury_transfer`
+- `get_treasury_balances`
+- `set_party_opening_balance`
+
+اعتمادياتها تشمل `business_members`, `parties`, `payments`, `cash_transactions`, `expenses`, `treasury_transfers`, `audit_log`، والـViews `cash_balances` و`party_account_balances`، بالإضافة إلى `has_business_permission` و`next_operation_code` وTriggers توليد الأكواد.
+
+كل الدوال العشر في Test SECURITY DEFINER مع `search_path=''` وتتحقق من هوية المستخدم والصلاحية، ولا تستخدم SQL ديناميكي. يجب اختبار اتساق قيد المصروف مع حركة الخزنة، وعدم تجاوز رصيد حساب الخزنة، ومنع عكس التحويل أكثر من مرة، والتأكد من أن الرصيد المعروض بعد كل عملية يطابق مجموع الحركات.
