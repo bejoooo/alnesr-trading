@@ -1,7 +1,7 @@
 {
   "name": "النسر للتجارة",
   "short_name": "النسر",
-  "start_url": "./app/",
+  "start_url": "./preview/",
   "scope": "./",
   "display": "standalone",
   "background_color": "#f3f6f8",
