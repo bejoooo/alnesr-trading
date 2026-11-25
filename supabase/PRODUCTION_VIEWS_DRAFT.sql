@@ -4,7 +4,7 @@
 -- No table data is inserted, updated, or deleted by this file.
 
 begin;
-set local search_path = public, pg_catalog;
+set local search_path = pg_catalog, public;
 
 -- Fail closed until all base schema stages are present.
 do $preflight$
