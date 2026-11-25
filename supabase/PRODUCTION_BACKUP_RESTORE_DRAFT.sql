@@ -435,7 +435,11 @@ begin
         coalesce(
           nullif(value->>'unit_price','')::numeric,
           (
-            select nullif(si.value->>'unit_price','')::numeric
+            select round(
+              nullif(si.value->>'line_total','')::numeric
+              / nullif(nullif(si.value->>'quantity','')::numeric,0),
+              2
+            )
             from jsonb_array_elements(p_backup->'tables'->'sales_items') si(value)
             where si.value->>'id'=value->>'sales_item_id'
           )
