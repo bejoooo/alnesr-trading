@@ -264,3 +264,56 @@
 - أضف المفاتيح المركبة وFKs same-business في الحزمة الجديدة، بعد فحص التكرار والصفوف orphan.
 - لا تنقل بيانات أو counters من Test.
 - لا تشغل هذا الملف؛ هو توثيق فقط، وليس SQL.
+
+
+## تدقيق إضافي — الدقة العددية وتصميم علاقات same-business (25 نوفمبر 2026)
+
+تم استخراج الدقة الفعلية من `information_schema.columns` في Test؛ القيم التالية هي المرجع بدل عبارة "precision defined in source" أعلاه:
+
+| الجدول | العمود | النوع الدقيق |
+|---|---|---|
+| customer_credit_ledger | amount | numeric(14,2) |
+| purchase_invoice_cost_snapshots | average_cost_before | numeric(14,2) |
+| purchase_return_items | quantity | numeric(14,3) |
+| purchase_return_items | unit_cost, line_total | numeric(14,2) |
+| purchase_returns | total, credit_generated_total, invoice_due_reduced_total | numeric(14,2) |
+| stock_adjustment_cost_snapshots | average_cost_before | numeric(14,2) |
+| treasury_transfers | amount | numeric(14,2) |
+
+### علاقات مركبة مطلوبة عند بناء الجداول الجديدة
+
+لا تنسخ FKs أحادية العمود من Test كما هي. يجب أن تستخدم علاقات مركبة تشمل `business_id` حيثما ينتمي الطرفان إلى نشاط:
+
+- `purchase_returns(business_id,purchase_invoice_id)` → `purchase_invoices(business_id,id)`.
+- `purchase_returns(business_id,supplier_id)` → `parties(business_id,id)`.
+- `purchase_return_items(business_id,return_id)` → `purchase_returns(business_id,id)`.
+- `purchase_return_items(business_id,purchase_item_id)` → `purchase_items(business_id,id)`.
+- `purchase_return_items(business_id,product_id)` → `products(business_id,id)`.
+- `customer_credit_ledger(business_id,customer_id)` → `parties(business_id,id)`.
+- `customer_credit_ledger(business_id,source_return_id)` → `sales_returns(business_id,id)`.
+- `customer_credit_ledger(business_id,invoice_id)` → `sales_invoices(business_id,id)`.
+- `customer_credit_ledger(business_id,payment_id)` → `payments(business_id,id)`.
+- `customer_credit_ledger(business_id,reversal_of_id)` → `customer_credit_ledger(business_id,id)`.
+- `purchase_invoice_cost_snapshots(business_id,invoice_id)` → `purchase_invoices(business_id,id)`، وكذلك المنتج.
+- `stock_adjustment_cost_snapshots(business_id,movement_id)` → `stock_movements(business_id,id))، وكذلك المنتج.
+- `treasury_transfers(business_id,reversal_of_transfer_id)` → `treasury_transfers(business_id,id)`.
+
+### مفاتيح مركبة مرجعية ينبغي تجهيزها
+
+المفاتيح المركبة الموجودة حاليًا في Production على الجداول المشتركة تشمل parties وproducts وpurchase_invoices وsales_invoices وsales_items وsales_returns. أما الجداول المرجعية التي ستحتاج UNIQUE(business_id,id) قبل ربطها مركبًا فتشمل — بحسب العلاقات النهائية التي ستُعتمد — payments وstock_movements وcash_transactions، إضافةً إلى الجداول الجديدة ذات المعرفات المستقلة.
+
+لا تضف قيدًا مركبًا على جدول لم يُنشأ بعد، ولا تضف UNIQUE مكررًا إذا كان هناك مفتاح مكافئ. افحص الاسم والتعريف قبل كل DDL.
+
+### نتائج فحص بيانات Production الحالية
+
+تم تنفيذ فحص قراءة فقط لعشر علاقات same-business موجودة بالفعل في بيانات Production:
+- purchase_items → purchase_invoices / products
+- sales_items → sales_invoices / products
+- sales_returns → sales_invoices
+- sales_return_items → sales_returns / sales_items / products
+- payments → parties
+- cash_transactions → parties
+
+النتيجة: **صفر صفوف orphan في العلاقات العشر** وقت الفحص. هذه نتيجة للفحوص المذكورة فقط، ولا تُعد اختبارًا للجداول الجديدة أو العلاقات التي ستُضاف لاحقًا.
+
+لم يتم تنفيذ أي DDL أو DML على Production.
