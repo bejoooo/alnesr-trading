@@ -426,8 +426,7 @@ begin
   return jsonb_build_object('restored',true,'business_id',p_business_id,
     'tables',to_jsonb(required_tables));
 end;
-$function$
-
+$function$;
 
 revoke all on function public.restore_business_backup(uuid,jsonb) from public, anon, authenticated;
 grant execute on function public.restore_business_backup(uuid,jsonb) to authenticated, service_role;
