@@ -320,16 +320,6 @@ begin
         insert into public.customer_credit_ledger
         select * from jsonb_populate_recordset(null::public.customer_credit_ledger,v_rows);
       end if;
-    elsif tbl='expenses' then
-      -- Legacy v2 backups may predate the expense status column.
-      select coalesce(jsonb_agg(value || jsonb_build_object(
-        'status',coalesce(nullif(value->>'status',''),'posted')
-      )),'[]'::jsonb) into v_rows
-      from jsonb_array_elements(p_backup->'tables'->tbl) as x(value);
-      if jsonb_array_length(v_rows)>0 then
-        insert into public.expenses
-        select * from jsonb_populate_recordset(null::public.expenses,v_rows);
-      end if;
     elsif tbl='payments' then
       select coalesce(jsonb_agg(value || jsonb_build_object('posted_at',
         coalesce(nullif(value->>'posted_at',''),value->>'created_at'))),'[]'::jsonb) into v_rows
