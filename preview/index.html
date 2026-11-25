@@ -1329,7 +1329,7 @@ async function loadReports(){
   add("purchaseReturns",permission("purchases.view"),"purchase_returns","id,return_no,purchase_invoice_id,supplier_id,return_date,total,credit_generated_total,status","return_date",q=>q.eq("status","posted"));
   add("payments",permission("payments.view"),"payments","id,party_id,invoice_id,sales_return_id,reversal_of_payment_id,party_account_type,direction,amount,payment_date,method,reference,notes","payment_date");
   add("cash",permission("cash.view"),"cash_transactions","id,transaction_date,direction,transaction_type,amount,party_id,invoice_id,payment_id,treasury_transfer_id,account_method,reason,notes","transaction_date");
-  add("treasuryTransfers",permission("cash.view")&&permission("payments.view"),"treasury_transfers","id,transfer_date,transfer_code,source_method,destination_method,amount,notes,created_at","transfer_date");
+  add("treasuryTransfers",permission("treasury_transfer.view"),"treasury_transfers","id,transfer_date,transfer_code,source_method,destination_method,amount,notes,created_at","transfer_date");
   add("expenses",permission("expenses.view"),"expenses","id,name,amount,expense_date,notes,status","expense_date",q=>q.neq("status","void"));
   add("returns",permission("sales.view"),"sales_returns","id,return_no,sales_invoice_id,customer_id,return_date,refund_total,notes,status","return_date",q=>q.eq("status","posted"));
   add("movements",permission("inventory.view"),"stock_movements","id,product_id,movement_date,movement_type,quantity_delta,unit_cost,source_type,source_id,stock_bucket,notes","movement_date");
@@ -1481,7 +1481,7 @@ function renderReports(from,to){
  if(permission("expenses.view"))parts.push('<div class="subpanel"><h4>المصروفات</h4><p>عدد العمليات: '+d.expenses.length+' · الإجمالي: '+reportMoney(expense)+'</p></div>');
 
  if(permission("cash.view")&&permission("payments.view"))parts.push('<div class="subpanel"><h4>إجمالي حركة الأموال بكل وسائل الدفع</h4><p>إجمالي الداخل: '+reportMoney(operatingIn)+' · إجمالي الخارج: '+reportMoney(operatingOut)+'</p><p class="muted">يشمل الدفعات والحركات اليدوية على جميع وسائل الدفع، ويستبعد التحويلات الداخلية بين الأرصدة ويمنع تكرار حركة الخزنة المرتبطة بدفعة.</p></div>');
- if(permission("cash.view")&&permission("payments.view"))parts.push('<div class="subpanel"><h4>تحويلات الأرصدة بين وسائل الدفع</h4><p>عدد التحويلات: '+(d.treasuryTransfers||[]).length+' · إجمالي قيمة التحويلات: '+reportMoney(reportSum(d.treasuryTransfers||[],"amount"))+'</p><p class="muted">التحويلات تظهر هنا كسجل مستقل ولا تدخل ضمن إجمالي الداخل أو الخارج التشغيلي.</p></div>');
+ if(permission("treasury_transfer.view"))parts.push('<div class="subpanel"><h4>تحويلات الأرصدة بين وسائل الدفع</h4><p>عدد التحويلات: '+(d.treasuryTransfers||[]).length+' · إجمالي قيمة التحويلات: '+reportMoney(reportSum(d.treasuryTransfers||[],"amount"))+'</p><p class="muted">التحويلات تظهر هنا كسجل مستقل ولا تدخل ضمن إجمالي الداخل أو الخارج التشغيلي.</p></div>');
  if(permission("sales.view"))parts.push('<div class="subpanel"><h4>المرتجعات</h4><p>عدد المرتجعات: '+d.returns.length+' · قيمة الردود: '+reportMoney(returns)+'</p></div>');
  if(permission("inventory.view"))parts.push('<div class="subpanel"><h4>المخزون الحالي</h4><p>عدد المنتجات: '+trackedStock.length+' · قيمة المخزون حسب متوسط التكلفة الحالي: '+reportMoney(reportSum(trackedStock,"stock_value"))+' · تحت حد التنبيه: '+trackedStock.filter(x=>x.below_minimum).length+'</p><p class="muted">هذا رصيد لحظي حالي، وليس رصيدًا تاريخيًا في نهاية الفترة المختارة.</p></div>');
  if(permission("sales.view"))parts.push('<div class="subpanel"><h4>هامش البنود قبل المرتجعات والمصروفات</h4><p>'+reportMoney(margin)+'</p><p class="muted">محسوب بعد الخصومات المسجلة على بنود الفواتير، لكنه لا يخصم مرتجعات المبيعات أو المصروفات أو خسائر المخزون؛ لذلك لا يمثل صافي الربح.</p></div>');
@@ -1520,7 +1520,7 @@ function exportReportsExcel(){
  }
  if(permission("payments.view"))add("الدفعات",map(visibleReportPayments(),x=>({التاريخ:x.payment_date,الاتجاه:x.direction==="in"?"مقبوض":"مدفوع",المبلغ:x.amount,الطريقة:x.method,المرجع:x.reference,ملاحظات:x.notes,معرف_الفاتورة:x.invoice_id,معرف_الحساب:x.party_id})));
 
- if(permission("cash.view")&&permission("payments.view")){
+ if(permission("treasury_transfer.view")){
   add("تحويلات_الأرصدة",map(d.treasuryTransfers||[],x=>({التاريخ:x.transfer_date,كود_التحويل:x.transfer_code,من:x.source_method,إلى:x.destination_method,المبلغ:x.amount,ملاحظات:x.notes})));
   const moneyRows=buildOperatingMoneyRows(d.payments,d.cash,from,to);
   add("ملخص_حركة_الأموال",[{البند:"إجمالي الداخل بكل الوسائل",القيمة:moneyRows.filter(x=>x.direction==="in").reduce((a,x)=>a+Number(x.amount||0),0)},{البند:"إجمالي الخارج بكل الوسائل",القيمة:moneyRows.filter(x=>x.direction==="out").reduce((a,x)=>a+Number(x.amount||0),0)},{ملاحظة:"تم استبعاد التحويلات الداخلية بين وسائل الدفع ومنع تكرار حركات الخزنة المرتبطة بالدفعات."}]);
