@@ -977,3 +977,8 @@
 - Production بها Edge Function واحدة `app-preview` (ACTIVE v3, verify_jwt=false) تقدم HTML عامًا للواجهة الأقدم؛ لم يظهر مفتاح service-role فعلي في النص، والدالة لم تُعدل.
 
 لا يعني تحذير SECURITY DEFINER وجود ثغرة تلقائيًا؛ يظل فحص جسم الدالة وACL/search_path شرطًا قبل الترقية. لم يتم تعديل Auth أو Edge Functions أو قواعد البيانات.
+
+
+### مصفوفة توافق RPC الفعلية بين Preview وTest وProduction
+
+تم إنشاء `supabase/RPC_COMPATIBILITY_MATRIX_AR.md` من استدعاءات Preview الفعلية وتعريفات PostgreSQL الحالية. النتيجة: 37 اسم RPC في الواجهة، 39 توقيعًا في Test، 10 توقيعات في Production ضمن هذه الأسماء، منها 9 مطابقة تمامًا و30 توقيعًا غير متاح بالتوقيع نفسه. `record_expense` موجود بالاسم فقط بتوقيع قديم لا يقبل `p_method`.
