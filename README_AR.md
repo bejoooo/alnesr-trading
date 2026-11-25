@@ -1647,3 +1647,13 @@ RLS مفعّل على الجداول العشرة كلها. جداول النس�
 - عند استعادة v2، تُعامل الجداول التي لم تكن موجودة في الصيغة القديمة (`purchase_returns`, `purchase_return_items`, `customer_credit_ledger`, `treasury_transfers`) كقوائم فارغة. تعرض الواجهة تحذيرًا واضحًا قبل المتابعة بأن هذه البيانات الجديدة غير موجودة في النسخة القديمة ولن تُستعاد.
 - استعادة v3 تشترط الجداول الجديدة كاملة، ولا يظهر التحذير القديم.
 - Migration 063 طُبقت على Test Supabase فقط، ومصدرها `supabase/063_preserve_legacy_v2_backup_restore_compatibility.sql` محفوظ على development. لا تغيير في البيانات أو Production.
+
+
+### مراجعة Supabase Advisors بعد تحديث النسخ الاحتياطي والاستعادة والتصفير
+
+- شُغّل فحص Security وPerformance على Test Supabase بعد Migration 062 و063.
+- Security: ما زالت 4 جداول داخلية/نسخ احتياطية لديها RLS مفعّل بلا policies (`operation_counters` وثلاثة جداول backup داخلية). لم نضف policies عامة؛ `operation_counters` تُستخدم من خلال `next_operation_code` المحمية بعضوية النشاط، وجداول backup الداخلية لا ينبغي فتحها عبر Data API.
+- Security: يظهر تحذير عام عن 47 دالة `SECURITY DEFINER` قابلة للتنفيذ للمستخدم المسجل. هذا ليس دليلًا وحده على ثغرة؛ الدوال التشغيلية تتحقق من `auth.uid()` والعضوية/الدور داخل أجسامها، وتم التحقق من أن `reset_business_data` و`restore_business_backup` لا تسمحان بـanon، وتحتفظان بـ`search_path` فارغ وبفحص Owner النشط.
+- Security: ما زال تحذير `Leaked Password Protection Disabled` قائمًا. لم أغيّر إعداد المصادقة؛ تفعيله قد يؤثر على كلمات المرور الجديدة/المتغيرة ويحتاج قرارًا منفصلًا قبل التغيير.
+- Performance: ظهر 15 مؤشرًا غير مستخدم في بيئة الاختبار، وهو لا يكفي وحده لتبرير حذفها؛ بعض المسارات قليلة الاستخدام أو جديدة. لم أحذف أي مؤشر. ظهر جدول اختبار backup بلا Primary Key، وهو جدول اختبار داخلي وليس جدول تشغيل.
+- لا تغييرات إضافية على الكود أو قاعدة البيانات في هذه المراجعة، ولا أي تغيير في Production.
