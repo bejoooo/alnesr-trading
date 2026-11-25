@@ -989,3 +989,16 @@
 تم فحص كل 20 دالة SECURITY DEFINER في public، وليس عينة فقط. 17 منها قابلة للتنفيذ من authenticated، وصفر من anon أو PUBLIC. ست عشرة تستخدم search_path يبدأ بـpublic أو public, pg_temp؛ ثلاث تستخدم search_path فارغًا، وواحدة pg_catalog. تم توثيق التوقيعات ونتائج الفحص في `SECURITY_DEFINER_PRODUCTION_REVIEW_AR.md`.
 
 **القرار:** لا نغيّر search_path أو SECURITY DEFINER بالجملة. تُراجع كل دالة على حدة، خصوصًا `restore_business_backup` بسبب dynamic SQL. لم يتم تغيير أي ACL أو دالة.
+
+
+### تدقيق استدعاءات Preview المباشرة
+
+تم إنشاء `PREVIEW_DATA_ACCESS_AUDIT_AR.md` بعد تحليل `preview/index.html` الحالي:
+- 24 كائنًا تستخدمها الواجهة عبر `.from()`: 18 جدولًا و6 Views.
+- 41 موضع RPC و37 اسمًا فريدًا.
+- الكتابة المباشرة تتم على `businesses` (تحديث)، `products` (إدراج/تحديث)، و`parties` (إدراج).
+- لا توجد عمليات حذف مباشرة لصفوف جداول قاعدة البيانات في مسارات الكتابة التي فُحصت؛ حذف الصور يخص Storage.
+- bucket الوحيد هو `product-images`.
+- إضافة `businesses.tagline` شرط قبل نشر الواجهة.
+
+هذا يحدد أن تحديث قاعدة البيانات لا يقتصر على RPCs؛ يجب الحفاظ على سياسات الكتابة المباشرة للمنتجات والأطراف وإعدادات النشاط.
