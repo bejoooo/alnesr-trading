@@ -219,6 +219,89 @@ begin
     raise exception 'بنود مرتجعات المشتريات تحتوي مراجع غير موجودة في النسخة';
   end if;
 
+  -- Enforce the same logical parent-child relationships as the posting RPCs.
+  -- Same-business FKs alone do not prove that a return item belongs to the invoice
+  -- referenced by its parent return, or that the returned product matches its source item.
+  if exists (
+    select 1
+    from jsonb_array_elements(p_backup->'tables'->'purchase_returns') r(value)
+    where not exists (
+      select 1 from jsonb_array_elements(p_backup->'tables'->'purchase_invoices') i(value)
+      where i.value->>'id'=r.value->>'purchase_invoice_id'
+        and i.value->>'supplier_id'=r.value->>'supplier_id'
+        and i.value->>'business_id'=p_business_id::text
+    )
+  ) then
+    raise exception 'مرتجع مشتريات مرتبط بمورد أو فاتورة غير متطابقين';
+  end if;
+
+  if exists (
+    select 1
+    from jsonb_array_elements(p_backup->'tables'->'purchase_return_items') ri(value)
+    join jsonb_array_elements(p_backup->'tables'->'purchase_returns') r(value)
+      on r.value->>'id'=ri.value->>'return_id'
+    where not exists (
+      select 1 from jsonb_array_elements(p_backup->'tables'->'purchase_items') pi(value)
+      where pi.value->>'id'=ri.value->>'purchase_item_id'
+        and pi.value->>'invoice_id'=r.value->>'purchase_invoice_id'
+        and pi.value->>'product_id'=ri.value->>'product_id'
+        and pi.value->>'business_id'=p_business_id::text
+    )
+  ) then
+    raise exception 'بند مرتجع المشتريات لا يطابق فاتورة المرتجع أو المنتج الأصلي';
+  end if;
+
+  if exists (
+    select 1
+    from jsonb_array_elements(p_backup->'tables'->'sales_returns') r(value)
+    where not exists (
+      select 1 from jsonb_array_elements(p_backup->'tables'->'sales_invoices') i(value)
+      where i.value->>'id'=r.value->>'sales_invoice_id'
+        and i.value->>'customer_id'=r.value->>'customer_id'
+        and i.value->>'business_id'=p_business_id::text
+    )
+  ) then
+    raise exception 'مرتجع المبيعات مرتبط بعميل أو فاتورة غير متطابقين';
+  end if;
+
+  if exists (
+    select 1
+    from jsonb_array_elements(p_backup->'tables'->'sales_return_items') ri(value)
+    join jsonb_array_elements(p_backup->'tables'->'sales_returns') r(value)
+      on r.value->>'id'=ri.value->>'return_id'
+    where not exists (
+      select 1 from jsonb_array_elements(p_backup->'tables'->'sales_items') si(value)
+      where si.value->>'id'=ri.value->>'sales_item_id'
+        and si.value->>'invoice_id'=r.value->>'sales_invoice_id'
+        and si.value->>'product_id'=ri.value->>'product_id'
+        and si.value->>'business_id'=p_business_id::text
+    )
+  ) then
+    raise exception 'بند مرتجع المبيعات لا يطابق فاتورة المرتجع أو المنتج المباع';
+  end if;
+
+  if exists (
+    select 1
+    from jsonb_array_elements(p_backup->'tables'->'customer_credit_ledger') c(value)
+    where (nullif(c.value->>'source_return_id','') is not null and not exists (
+      select 1 from jsonb_array_elements(p_backup->'tables'->'sales_returns') r(value)
+      where r.value->>'id'=c.value->>'source_return_id'
+        and r.value->>'customer_id'=c.value->>'customer_id'
+    ))
+    or (nullif(c.value->>'invoice_id','') is not null and not exists (
+      select 1 from jsonb_array_elements(p_backup->'tables'->'sales_invoices') i(value)
+      where i.value->>'id'=c.value->>'invoice_id'
+        and i.value->>'customer_id'=c.value->>'customer_id'
+    ))
+    or (nullif(c.value->>'payment_id','') is not null and not exists (
+      select 1 from jsonb_array_elements(p_backup->'tables'->'payments') p(value)
+      where p.value->>'id'=c.value->>'payment_id'
+        and p.value->>'party_id'=c.value->>'customer_id'
+    ))
+  ) then
+    raise exception 'حركة رصيد العميل الدائن مرتبطة بمرتجع أو فاتورة أو دفعة تخص طرفًا آخر';
+  end if;
+
   if exists (
     select 1 from jsonb_array_elements(p_backup->'tables'->'payments') p(value)
     where nullif(p.value->>'purchase_return_id','') is not null
