@@ -1594,8 +1594,8 @@ async function restoreBusinessBackup(){
  if(file.size>100*1024*1024)return message("globalMessage","حجم الملف أكبر من الحد المسموح (100 ميجابايت).");
  let backup;
  try{backup=JSON.parse(await file.text());}catch(e){return message("globalMessage","الملف ليس JSON صالحًا.");}
- if(backup?.format_version!=="alnesr-business-backup-v3"||backup?.business_id!==activeBusinessId||!backup.tables||typeof backup.tables!=="object")return message("globalMessage","النسخة لا تخص هذا النشاط أو إصدارها غير مدعوم.");
- const requiredTables=["products","parties","purchase_invoices","purchase_items","purchase_invoice_cost_snapshots","sales_invoices","sales_items","sales_returns","sales_return_items","purchase_returns","purchase_return_items","payments","customer_credit_ledger","stock_movements","stock_adjustment_cost_snapshots","treasury_transfers","cash_transactions","expenses","business_settings"];
+ if(!["alnesr-business-backup-v2","alnesr-business-backup-v3"].includes(backup?.format_version)||backup?.business_id!==activeBusinessId||!backup.tables||typeof backup.tables!=="object")return message("globalMessage","النسخة لا تخص هذا النشاط أو إصدارها غير مدعوم.");
+ const requiredTables=["products","parties","purchase_invoices","purchase_items","purchase_invoice_cost_snapshots","sales_invoices","sales_items","sales_returns","sales_return_items","payments","stock_movements","stock_adjustment_cost_snapshots","cash_transactions","expenses","business_settings",...(backup.format_version==="alnesr-business-backup-v3"?["purchase_returns","purchase_return_items","customer_credit_ledger","treasury_transfers"]:[])];
  if(requiredTables.some(name=>!Array.isArray(backup.tables[name]))||(backup.tables.audit_log!==undefined&&!Array.isArray(backup.tables.audit_log)))return message("globalMessage","النسخة ناقصة أو تحتوي جداول بصيغة غير صالحة.");
  const images=backup.images??[];
  if(!Array.isArray(images))return message("globalMessage","قائمة صور النسخة غير صالحة.");
@@ -1615,7 +1615,7 @@ async function restoreBusinessBackup(){
   }
  }catch(e){return message("globalMessage",e.message||"بيانات الصور في النسخة غير صالحة.");}
  if(images.length!==productPaths.size)return message("globalMessage","النسخة لا تحتوي كل صور المنتجات المشار إليها. لن تتم الاستعادة حتى لا تظهر منتجات بصور مفقودة.");
- if(!confirm("تنبيه: الاستعادة متاحة فقط إذا كانت جداول بيانات هذا النشاط فارغة. سيتم رفع صور المنتجات الخاصة أولًا ثم استعادة البيانات داخل معاملة واحدة. هل تريد المتابعة؟"))return;
+ const legacyWarning=backup.format_version==="alnesr-business-backup-v2"?"\n\nملاحظة: هذه نسخة قديمة لا تحتوي مرتجعات المشتريات وسجل الرصيد الدائن وتحويلات الخزنة؛ ستُستعاد الجداول المتاحة فيها فقط، وستظل هذه الجداول الجديدة فارغة.":"";\n if(!confirm("تنبيه: الاستعادة متاحة فقط إذا كانت جداول بيانات هذا النشاط فارغة. سيتم رفع صور المنتجات الخاصة أولًا ثم استعادة البيانات داخل معاملة واحدة."+legacyWarning+"\n\nهل تريد المتابعة؟"))return;
  message("globalMessage","جارٍ تجهيز صور النسخة داخل التخزين الخاص...");
  const uploaded=[];
  const cleanupUploaded=async()=>{
