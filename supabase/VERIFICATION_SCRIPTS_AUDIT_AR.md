@@ -120,3 +120,10 @@
 أُضيف `verify_production_owner_rpc_batch.sql` للتحقق من 17 توقيعًا، وSECURITY DEFINER، و`search_path=''`، وفحص auth.uid وbusiness_members، وACL لـauthenticated/service_role مع منع anon وPUBLIC.
 
 **نتيجة التشغيل على Test: اجتاز.** الفاحص قراءة كتالوجات فقط ولا ينفذ حذفًا أو عكسًا أو إلغاءً لأي حركة.
+
+
+## 11. فاحص دالة تصفير بيانات النشاط
+
+أُضيف `verify_production_reset_rpc.sql`، وهو يفحص تعريف الدالة وSECURITY DEFINER و`search_path=''` واشتراط المالك النشط وقفل النشاط، ويتأكد من عدم حذف business أو business_members ومن صلاحيات التنفيذ المقيدة.
+
+**نتيجة التشغيل على Test: اجتاز.** الفاحص لا يستدعي دالة التصفير ولا يحذف أي بيانات؛ لا يُعد اختبارًا وظيفيًا لسلوك التصفير أو rollback.
