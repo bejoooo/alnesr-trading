@@ -135,3 +135,8 @@ Test: `hxwcjbmlxbqrurrmjbpf` — Production: `njvaxrucfwgksqdfbckt`
 - 9 توقيعات مطابقة حرفيًا.
 - 30 توقيعًا مطلوبًا غير متاح في Production بالتوقيع نفسه.
 - `record_expense` موجود بالاسم لكنه لا يقبل `p_method`؛ لذلك لا يُعد متوافقًا.
+
+
+## ملحق: اعتماديات الواجهة المباشرة
+
+راجع `PREVIEW_DATA_ACCESS_AUDIT_AR.md`: 18 جدولًا و6 Views تقرأ مباشرة، وكتابات مباشرة إلى `businesses`, `products`, و`parties`، واستخدام Storage bucket `product-images`. يجب الحفاظ على سياسات RLS والـgrants لهذه الكتابات، وإضافة `businesses.tagline` قبل نشر الواجهة.
