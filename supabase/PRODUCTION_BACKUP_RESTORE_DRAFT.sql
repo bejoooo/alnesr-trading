@@ -462,6 +462,14 @@ begin
       -- Preserve the already-exported final product average_cost and each movement's
       -- average_cost_before. The AFTER INSERT trigger would otherwise apply customer
       -- return cost changes a second time during backup restoration.
+      if not exists (
+        select 1 from pg_trigger t
+        where t.tgrelid='public.stock_movements'::regclass
+          and t.tgname='stock_movements_customer_return_average_cost'
+          and not t.tgisinternal and t.tgenabled='O'
+      ) then
+        raise exception 'Customer-return average-cost trigger changed state; restore was stopped';
+      end if;
       alter table public.stock_movements
         disable trigger stock_movements_customer_return_average_cost;
 
