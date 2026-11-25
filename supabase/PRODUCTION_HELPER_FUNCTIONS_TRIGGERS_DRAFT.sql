@@ -26,20 +26,29 @@ begin
     raise exception 'Missing prerequisite tables: %', array_to_string(v_missing, ', ');
   end if;
 
-  if not exists (
-    select 1 from information_schema.columns
-    where table_schema='public' and table_name='stock_movements'
-      and column_name='average_cost_before'
+  if exists (
+    select 1
+    from (values
+      ('cash_transactions','transaction_code'),
+      ('expenses','expense_code'),
+      ('parties','party_code'),
+      ('payments','payment_code'),
+      ('stock_movements','movement_code'),
+      ('stock_movements','average_cost_before'),
+      ('treasury_transfers','transfer_code'),
+      ('sales_invoices','invoice_no'),
+      ('purchase_invoices','invoice_no'),
+      ('sales_returns','return_no'),
+      ('purchase_returns','return_no')
+    ) as required(table_name,column_name)
+    where not exists (
+      select 1 from information_schema.columns c
+      where c.table_schema='public'
+        and c.table_name=required.table_name
+        and c.column_name=required.column_name
+    )
   ) then
-    raise exception 'Missing prerequisite column public.stock_movements.average_cost_before';
-  end if;
-
-  if not exists (
-    select 1 from information_schema.columns
-    where table_schema='public' and table_name='treasury_transfers'
-      and column_name='transfer_code'
-  ) then
-    raise exception 'Missing prerequisite column public.treasury_transfers.transfer_code';
+    raise exception 'One or more required code/average-cost columns are missing; apply the prerequisite column/table stages first';
   end if;
 end
 $preflight$;
