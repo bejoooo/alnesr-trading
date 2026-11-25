@@ -220,3 +220,10 @@ Production لديه Views الأربعة الأولى بتعريفات أقدم�
 تعتمد على `business_members` للتحقق من المالك النشط، وعلى الجداول المالية وروابط reversal والـAudit. بعض العمليات تحتاج View `cash_balances` وحقول `posted_at` وreversal links وstatus.
 
 ملاحظة سلوكية مهمة: `owner_remove_party` و`owner_remove_product` يحذفان فعليًا فقط عند غياب التاريخ التشغيلي؛ وإلا يضبطان `is_active=false`. `owner_remove_cash_transaction` و`owner_remove_expense` لا يحذفان الحركة المالية؛ ينشئان قيدًا عكسيًا ويحتفظان بالسجل. `owner_remove_cash_opening_balance` وحده يحذف حركة الافتتاح بشرط أن تكون الحركة الوحيدة. يجب اختبار كل شرط رفض وعكس مزدوج قبل اعتماد هذه المجموعة.
+
+
+### تحديث 25 نوفمبر 2026 — عزل reset_business_data
+
+تم فصل `reset_business_data(uuid)` في ملف مستقل `PRODUCTION_RESET_BUSINESS_DATA_DRAFT.sql` بسبب طبيعته المدمرة. يعتمد على جميع الجداول التشغيلية الجديدة والقديمة، ويأخذ advisory lock لكل نشاط، ويتطلب auth.uid وعضوية مالك نشطة. يحذف بيانات التشغيل بالترتيب الذي يراعي علاقات العكس وقيود ON DELETE، ثم يضيف سجل Audit جديدًا.
+
+لا يحذف business أو business_members أو مستخدم Auth أو operation_counters. يجب اختبار الدالة على نشاط اختبار قابل للتخلص منه فقط، مع مقارنة counts قبل وبعد، والتأكد من بقاء النشاط والعضوية والعدادات، واختبار rollback عند فشل منتصف العملية. لا تنفذ على Production دون موافقة منفصلة.
