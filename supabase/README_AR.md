@@ -982,3 +982,10 @@
 ### مصفوفة توافق RPC الفعلية بين Preview وTest وProduction
 
 تم إنشاء `supabase/RPC_COMPATIBILITY_MATRIX_AR.md` من استدعاءات Preview الفعلية وتعريفات PostgreSQL الحالية. النتيجة: 37 اسم RPC في الواجهة، 39 توقيعًا في Test، 10 توقيعات في Production ضمن هذه الأسماء، منها 9 مطابقة تمامًا و30 توقيعًا غير متاح بالتوقيع نفسه. `record_expense` موجود بالاسم فقط بتوقيع قديم لا يقبل `p_method`.
+
+
+### مراجعة شاملة لدوال SECURITY DEFINER في Production
+
+تم فحص كل 20 دالة SECURITY DEFINER في public، وليس عينة فقط. 17 منها قابلة للتنفيذ من authenticated، وصفر من anon أو PUBLIC. ست عشرة تستخدم search_path يبدأ بـpublic أو public, pg_temp؛ ثلاث تستخدم search_path فارغًا، وواحدة pg_catalog. تم توثيق التوقيعات ونتائج الفحص في `SECURITY_DEFINER_PRODUCTION_REVIEW_AR.md`.
+
+**القرار:** لا نغيّر search_path أو SECURITY DEFINER بالجملة. تُراجع كل دالة على حدة، خصوصًا `restore_business_backup` بسبب dynamic SQL. لم يتم تغيير أي ACL أو دالة.
