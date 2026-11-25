@@ -65,6 +65,15 @@ begin
       missing := array_append(missing,'view public.'||item);
     end if;
   end loop;
+  if exists (
+    select 1 from pg_class c
+    join pg_namespace n on n.oid=c.relnamespace
+    where n.nspname='public' and c.relkind='v'
+      and c.relname=any(required_views)
+      and not ('security_invoker=true'=any(coalesce(c.reloptions,array[]::text[])))
+  ) then
+    missing := array_append(missing,'all Preview views must use security_invoker=true');
+  end if;
   foreach item in array required_columns loop
     if not exists (
       select 1 from information_schema.columns
@@ -108,6 +117,13 @@ begin
     if rpc_oid is null then
       missing := array_append(missing,'RPC '||rpc_name);
     else
+      if not exists (
+        select 1 from pg_proc p
+        where p.oid=rpc_oid and p.prosecdef
+          and 'search_path=""'=any(coalesce(p.proconfig,array[]::text[]))
+      ) then
+        missing := array_append(missing,'RPC must be SECURITY DEFINER with empty search_path: '||rpc_name);
+      end if;
       if not has_function_privilege('authenticated',rpc_oid,'EXECUTE') then
         missing := array_append(missing,'authenticated EXECUTE missing: '||rpc_name);
       end if;
