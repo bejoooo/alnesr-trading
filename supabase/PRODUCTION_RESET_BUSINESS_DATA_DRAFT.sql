@@ -50,11 +50,17 @@ AS $function$
 declare v_counts jsonb;
 begin
  if auth.uid() is null then raise exception 'يجب تسجيل الدخول قبل تصفير بيانات النشاط'; end if;
- if not exists(select 1 from public.business_members m where m.business_id=p_business_id
-   and m.user_id=auth.uid() and m.active=true and m.role='owner') then
+ perform 1 from public.business_members m where m.business_id=p_business_id
+   and m.user_id=auth.uid() and m.active=true and m.role='owner'
+   for share;
+ if not found then
   raise exception 'تصفير البيانات متاح لمالك النشاط فقط';
  end if;
  perform pg_advisory_xact_lock(hashtextextended(p_business_id::text,0));
+ perform 1 from public.businesses b where b.id=p_business_id for update;
+ if not found then
+  raise exception 'النشاط المطلوب غير موجود';
+ end if;
  select jsonb_build_object(
   'products',(select count(*) from public.products where business_id=p_business_id),
   'parties',(select count(*) from public.parties where business_id=p_business_id),
