@@ -191,3 +191,8 @@ Preview تستدعي 37 اسم RPC فريدًا، وTest تغطيها عبر 39 
 ## توافق RPC بعد المطابقة النهائية للواجهة
 
 تم ربط `RPC_COMPATIBILITY_MATRIX_AR.md` بخريطة الترقية. الأعداد الدقيقة: 37 اسم RPC في Preview، 39 توقيعًا في Test، 10 توقيعات في Production ضمن هذه الأسماء، 9 متطابقة تمامًا، و30 توقيعًا غائبًا بالتوقيع نفسه. يجب أن تُبنى مجموعات RPC على هذا الجدول وليس على أسماء الدوال فقط.
+
+
+### اكتمال جرد SECURITY DEFINER في Production
+
+أُضيف `SECURITY_DEFINER_PRODUCTION_REVIEW_AR.md` بعد استخراج كل الدوال العشرين في public، ACL، وsearch_path. لا يوجد EXECUTE لـanon/PUBLIC في هذه الدوال، لكن 16 دالة تستخدم public أو public, pg_temp. لا يتم توحيد الإعداد آليًا؛ تُراجع كل دالة منفردة، وخاصة restore_business_backup التي تستخدم dynamic SQL.
