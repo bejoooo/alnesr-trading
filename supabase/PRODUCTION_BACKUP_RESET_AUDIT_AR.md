@@ -129,4 +129,4 @@
 
 لم أغيّر مسودة الجداول في هذه النقطة؛ المنح المذكورة موجودة بالفعل. لكن عند تجهيز الترقية النهائية يجب التحقق أيضًا من أن `public` ما زال ضمن Exposed schemas في إعدادات Data API، ثم اختبار استدعاءات الواجهة الفعلية بعد الترقية. لم يتم تنفيذ أي DDL أو تغيير إعدادات API.
 
-المصدر الرسمي: https://supabase.com/changelog/automatic-api-exposure
+المصدر الرسمي: https://supabase.com/changelog/45329-breaking-change-tables-not-exposed-to-data-and-graphql-api-automatically
