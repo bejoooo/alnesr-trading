@@ -1545,10 +1545,17 @@ function exportReportsExcel(){
 }
 
 const backupTables=["products","parties","purchase_invoices","purchase_items","purchase_invoice_cost_snapshots","sales_invoices","sales_items","sales_returns","sales_return_items","purchase_returns","purchase_return_items","payments","customer_credit_ledger","stock_movements","stock_adjustment_cost_snapshots","treasury_transfers","cash_transactions","expenses","business_settings","audit_log"];
+const backupOrderColumns={
+ business_settings:["business_id"],
+ purchase_invoice_cost_snapshots:["invoice_id","product_id"],
+ stock_adjustment_cost_snapshots:["movement_id","product_id"]
+};
 async function fetchBackupRows(table){
  let rows=[],from=0,step=1000;
  while(true){
-  const {data,error}=await client.from(table).select("*").eq("business_id",activeBusinessId).order(table==="business_settings"?"business_id":"id",{ascending:true}).range(from,from+step-1);
+  let query=client.from(table).select("*").eq("business_id",activeBusinessId);
+  for(const column of (backupOrderColumns[table]||["id"]))query=query.order(column,{ascending:true});
+  const {data,error}=await query.range(from,from+step-1);
   if(error)throw error;
   rows.push(...(data||[]));
   if(!data||data.length<step)break;
