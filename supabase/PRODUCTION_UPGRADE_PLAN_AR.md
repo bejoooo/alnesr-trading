@@ -223,3 +223,6 @@ Preview تستدعي 37 اسم RPC فريدًا، وTest تغطيها عبر 39 
 ## خريطة اعتماديات RPC وPreflight Production
 
 تم إنشاء `RPC_DEPENDENCY_MAP_AR.md` لربط 39 توقيع RPC بالجداول والـhelpers، وتحديد ترتيب البناء. كما أُنشئ `PRODUCTION_PREFLIGHT_READONLY.sql` وشُغّل على Production قراءة فقط. النتائج موثقة في `PRODUCTION_PREFLIGHT_RESULTS_AR.md`: نشاط واحد وعضوية مالك نشطة واحدة، لا سجلات تشغيلية في الجداول الـ14، RLS مفعّل على الجداول الـ16، وbucket الصور خاص وفارغ. تُحفظ هذه الحالة وتُقارن بعد الترقية؛ لا تُحذف العضوية أو النشاط.
+
+
+تم توسيع فاحص Preview الهيكلي ليشمل `security_invoker=true` على Views الستة، واشتراط `SECURITY DEFINER` مع `search_path=""` لكل توقيع RPC من الـ39، والتحقق من ACL. اجتاز الفاحص المقوّى Test.
