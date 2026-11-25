@@ -2274,3 +2274,10 @@ RLS مفعّل على الجداول العشرة كلها. جداول النس�
 أضيف إلى Preflight في `PRODUCTION_BACKUP_RESTORE_DRAFT.sql` فحص fail-closed للـ20 composite FK التي تنشئها `PRODUCTION_STRUCTURAL_FK_DRAFT.sql`. لا تُعتمد RPC الاستعادة قبل وجود هذه القيود بحالة validated؛ فهي تمنع ربط دفعة/حركة/مرتجع/مصروف/لقطة تكلفة بسجل من نشاط آخر. الفحص الحالي لـProduction أظهر أن هذه القيود الجديدة لم تُطبق بعد.
 
 لم يتم تنفيذ أي FK أو استعادة؛ المسودات فقط تم تعديلها وتوثيقها. راجع `supabase/PRODUCTION_BACKUP_RESET_AUDIT_AR.md` للتفاصيل.
+
+
+### تصحيح أسعار بنود مرتجعات المبيعات في نسخ v2 القديمة
+
+إذا غاب `sales_return_items.unit_price` من النسخة القديمة، أصبح الاسترجاع يستخرج سعر الوحدة من `sales_items.line_total / sales_items.quantity` بعد الخصومات، بدل `sales_items.unit_price` قبل الخصم. بذلك يطابق طريقة حساب قيمة المرتجع التاريخية. إذا لم يوجد بند البيع أو كانت كميته صفرًا، تتوقف الاستعادة بدل اختلاق سعر.
+
+تم التحقق من التعبير الحسابي باستعلام read-only، وتوثيق النتيجة في `supabase/PRODUCTION_BACKUP_RESET_AUDIT_AR.md`. لم يتم تشغيل استعادة فعلية.
