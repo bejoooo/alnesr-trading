@@ -93,3 +93,9 @@
 المسودة تستخرج سعر بند المرتجع من `sales_items.unit_price` لنفس `sales_item_id` عند غياب السعر في النسخة؛ ولا تسمح بالاستعادة إذا لم يمكن استرداد السعر. كما تضيف القيم الافتراضية المتوافقة مع السلوك القديم لحقل bucket وطريقة الحساب، وتحافظ على القيم الموجودة في نسخ v3.
 
 لم يُنفذ Restore على Test أو Production. يجب أن تشمل خطة التحقق ملف v2 قديمًا وملف v3 حديثًا، وحالات الإصدار المفقود/غير المدعوم، وغياب السعر الأصلي، وفشل FK مع التأكد من rollback الكامل.
+
+
+## 7. فاحص الدوال المساعدة والـTriggers
+
+- `verify_test_helper_baseline.sql`: فاحص قراءة فقط للحالة الحالية في Test. **اجتاز**، وأكد 8 دوال و8 Triggers وACL مقيد. يتسامح فقط مع استثناءين معروفين في Test قبل مرحلة التوحيد: `guard_product_average_cost` و`assign_automatic_invoice_number` يستخدمان `search_path=public`.
+- `verify_production_helpers.sql`: فاحص صارم لما بعد ترقية Production؛ يشترط `search_path=''` لكل الدوال الثماني، ويفحص SECURITY DEFINER وACL. لم يُشغّل على Test الحالي أو Production بعد.
