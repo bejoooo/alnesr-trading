@@ -201,3 +201,8 @@ Preview تستدعي 37 اسم RPC فريدًا، وTest تغطيها عبر 39 
 ## مراجعة استدعاءات الواجهة المباشرة
 
 تم توثيق `PREVIEW_DATA_ACCESS_AUDIT_AR.md`. الواجهة تقرأ 18 جدولًا و6 Views مباشرة، وتكتب مباشرة إلى `businesses`, `products`, و`parties`، وتستخدم bucket `product-images`. يجب إضافة `businesses.tagline` والحفاظ على سياسات الكتابة المباشرة الحالية؛ لا نحول هذه المسارات إلى RPC-only ضمن هذه الترقية دون تعديل الواجهة.
+
+
+### صلاحيات الأعمدة للكتابات المباشرة
+
+إضافة `businesses.tagline` وحدها لا تكفي: يجب إضافة column-level UPDATE لـauthenticated كما في Test، مع الإبقاء على RLS policy التي تقصر الصفوف على owner/admin. تمت إضافة هذه النقطة إلى `PREVIEW_DATA_ACCESS_AUDIT_AR.md` وخريطة الاعتماديات. لا يتم منح صلاحيات كتابة على أعمدة `parties` المدارة تلقائيًا.
