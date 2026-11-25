@@ -468,3 +468,48 @@
 3. إنشاء/تحديث `cash_balances` و`product_stock_balances` و`party_account_balances` و`party_account_statement` و`daily_business_summary`.
 4. إنشاء `customer_credit_balances` و`customer_credit_return_balances` بعد إنشاء `customer_credit_ledger`.
 5. التحقق من أسماء الأعمدة وأنواعها وترتيبها مقابل استدعاءات الواجهة، ثم اختبار صلاحيات المالك والمدير والموظف ورفض anon.
+
+
+### عقد توافق Preview مع RPCs والجداول والـViews في Production (25 نوفمبر 2026)
+
+**مصدر المطابقة**
+- تمت قراءة `preview/index.html` من فرع `development` (320,939 حرفًا).
+- الواجهة تستدعي 37 اسم RPC فريدًا، وتستخدم 39 توقيعًا متوقعًا بسبب overloads، وتقرأ 24 كائنًا عبر `.from()` (جداول وViews وStorage bucket).
+- هذه المطابقة Static من الكود وكتالوج PostgreSQL؛ لم يتم تشغيل الواجهة ضد Production أو تنفيذ معاملات مالية.
+
+**تغطية RPC**
+- Test يحتوي جميع التواقيع الـ39 المطلوبة للواجهة.
+- Production يحتوي 10 تواقيع فقط من مجموعة الواجهة؛ 29 توقيعًا غير متاح، بما فيها الدوال الأساسية للبيع والشراء والمرتجعات والخزنة والرصيد الدائن وإدارة السجلات.
+- توجد دوال بالاسم نفسه لكن بتوقيع قديم غير متوافق: `record_expense` في Production لا يستقبل `p_method`، و`post_sales_return` لا يستقبل `p_method`. لا يكفي وجود الاسم؛ يجب مطابقة التوقيع الكامل.
+- تواقيع العضوية المشتركة `add_business_member_by_email` و`list_business_members` و`update_business_member` و`restore_business_backup` و`set_party_opening_balance` و`record_cash_opening_balance` و`record_invoice_payment` تحتاج مطابقة تعريفات/سلوك وصلاحيات، وليس مجرد وجودها. `restore_business_backup` خصوصًا يختلف جوهريًا بين البيئتين.
+- كل التواقيع الـ39 المطلوبة في Test التي فُحصت تمنح EXECUTE لـ`authenticated` ولا تمنحه لـ`anon` أو `PUBLIC`. يجب الحفاظ على هذا المعيار في Production، مع التحقق من جسم كل دالة وصلاحياتها الداخلية.
+
+**اعتماديات القراءة المباشرة للواجهة**
+- الجداول: `businesses`, `business_members`, `products`, `parties`, `purchase_invoices`, `purchase_items`, `purchase_returns`, `purchase_return_items`, `sales_invoices`, `sales_items`, `sales_returns`, `sales_return_items`, `payments`, `cash_transactions`, `expenses`, `stock_movements`, `customer_credit_ledger`, `treasury_transfers`.
+- Views: `cash_balances`, `product_stock_balances`, `party_account_balances`, `party_account_statement`, `customer_credit_balances`, `customer_credit_return_balances`.
+- Storage: bucket `product-images`.
+- يجب التحقق من أعمدة كل استعلام `select()` في الواجهة مقابل الأعمدة الفعلية، ومن GRANT وRLS لكل جدول/عرض. وجود RPC لا يغني عن صلاحية SELECT التي تحتاجها الواجهة للقراءة المباشرة.
+
+**الحقول التي تعتمد عليها الواجهة وتغيب عن Production حسب المقارنة السابقة**
+- `businesses.tagline`; `parties.is_active`, `parties.party_code`.
+- `purchase_invoices.supplier_credit_applied_total`; `sales_invoices.customer_credit_applied_total`.
+- حقول ربط/عكس/ترقيم في `payments`, `stock_movements`, `sales_returns`, `sales_return_items`, `expenses`, `cash_transactions` كما في جدول فجوات الأعمدة أعلاه.
+- حقول Views: `product_stock_balances.damaged_quantity/total_stock_quantity/has_stock_history/out_of_stock`; `party_account_balances.purchase_returns_total/customer_net_collected`; `party_account_statement.entry_timestamp`; Views رصيد العميل غير موجودة.
+- لا تنقل الواجهة إلى Production قبل اكتمال هذه الحقول والـViews وتحقق أسماء الأعمدة.
+
+**ترتيب ترقية آمن مستنتج من اعتماديات الواجهة**
+1. حماية خط الأساس وأخذ نسخ احتياطية قابلة للاستعادة دون حذف/استبدال بيانات الإنتاج.
+2. إضافة الأعمدة والجداول والقيود والفهارس اللازمة، ثم تدقيق same-business وبيانات الأكواد.
+3. إنشاء سياسات RLS ومنح القراءة الدنيا المطلوبة لـ`authenticated` فقط؛ لا تكرر منح anon القديمة على الجداول والـViews.
+4. إنشاء/تحديث Views مع `security_invoker=true` والتحقق من أعمدتها.
+5. نشر الدوال المساعدة والعدادات/Triggers، ثم RPCs التشغيلية بترتيب اعتمادياتها، مع `search_path` فارغ وEXECUTE لـauthenticated فقط.
+6. اختبار الصلاحيات وقراءات الواجهة أولًا، ثم مسارات تشغيلية على بيانات اختبار منفصلة، بما فيها البيع والشراء والمرتجعات والعكس والخزنة والمخزون والنسخ الاحتياطي.
+7. التحقق من إعداد Data API Exposed schemas وStorage، ثم تجهيز نسخة Production مستقلة من الواجهة بعد اعتماد قاعدة البيانات.
+8. تحويل نقطة الدخول والنشر أخيرًا، مع إبقاء `app/` القديمة كنسخة رجوع وعدم حذفها حتى انتهاء فترة تحقق.
+
+**حواجز لا يجوز تجاوزها**
+- لا تُشغّل `preview/index.html` على Production قبل استكمال كل 39 توقيع RPC وكل كائن قراءة مطلوب.
+- لا تستخدم `reset_business_data` أو `restore_business_backup` كوسيلة ترحيل أو اختبار للإنتاج.
+- لا تنسخ بيانات Test أو operation_counters إلى Production.
+- لا تطبق ملفات migrations القديمة بالتتابع؛ يلزم بناء حزمة additive جديدة من خط أساس Production ومراجعة SQL كاملًا.
+- هذه الخريطة لا تمنح إذنًا لتعديل Production؛ أي كتابة هناك تحتاج موافقة صريحة بعد عرض الحزمة وخطة الرجوع.
