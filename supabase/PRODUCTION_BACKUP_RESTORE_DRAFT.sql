@@ -67,11 +67,11 @@ begin
     raise exception 'يجب تسجيل الدخول لاستعادة النسخة الاحتياطية';
   end if;
 
-  if not exists (
-    select 1 from public.business_members
-    where business_id=p_business_id and user_id=auth.uid()
-      and active=true and role='owner'
-  ) then
+  perform 1 from public.business_members
+  where business_id=p_business_id and user_id=auth.uid()
+    and active=true and role='owner'
+  for share;
+  if not found then
     raise exception 'استعادة النسخة الاحتياطية متاحة لمالك النشاط فقط';
   end if;
 
