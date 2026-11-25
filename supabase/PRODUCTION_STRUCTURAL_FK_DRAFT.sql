@@ -48,6 +48,33 @@ begin
   end if;
 end $;
 
+
+-- Confirm the remaining composite target indexes are already supplied by the
+-- prerequisite schema stage. The four indexes created below are intentionally excluded.
+do $
+declare missing_targets text;
+begin
+  select string_agg(v.tbl, ', ' order by v.tbl)
+    into missing_targets
+  from (values
+    ('parties'),('products'),('purchase_invoices'),('sales_invoices'),
+    ('sales_returns'),('purchase_returns'),('customer_credit_ledger'),('treasury_transfers')
+  ) as v(tbl)
+  where not exists (
+    select 1
+    from pg_index i
+    join pg_class t on t.oid=i.indrelid
+    join pg_namespace n on n.oid=t.relnamespace
+    where n.nspname='public' and t.relname=v.tbl
+      and i.indisunique and i.indisvalid
+      and pg_get_indexdef(i.indexrelid) ilike '%(business_id, id)%'
+  );
+
+  if missing_targets is not null then
+    raise exception 'Preflight failed: missing unique (business_id, id) target indexes on: %', missing_targets;
+  end if;
+end $;
+
 -- 1) Candidate composite-key targets not currently unique on (business_id, id).
 -- The single-column PKs remain in place.
 create unique index if not exists payments_business_id_id_uk
