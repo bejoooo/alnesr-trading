@@ -317,3 +317,21 @@
 النتيجة: **صفر صفوف orphan في العلاقات العشر** وقت الفحص. هذه نتيجة للفحوص المذكورة فقط، ولا تُعد اختبارًا للجداول الجديدة أو العلاقات التي ستُضاف لاحقًا.
 
 لم يتم تنفيذ أي DDL أو DML على Production.
+
+
+### استكمال علاقات الأعمدة الجديدة في الجداول المشتركة
+
+أظهر استخراج جميع FKs من Test أن هناك روابط إضافية لا يجوز تركها كـUUID references أحادية النشاط عند ترقية Production. يجب أن تشمل الحزمة المقترحة كذلك:
+
+- `payments(business_id,sales_return_id)` → `sales_returns(business_id,id)`.
+- `payments(business_id,purchase_return_id)` → `purchase_returns(business_id,id)`.
+- `payments(business_id,reversal_of_payment_id)` → `payments(business_id,id)`.
+- `cash_transactions(business_id,sales_return_id)` → `sales_returns(business_id,id)`.
+- `cash_transactions(business_id,purchase_return_id)` → `purchase_returns(business_id,id)`.
+- `cash_transactions(business_id,payment_id)` → `payments(business_id,id)`.
+- `cash_transactions(business_id,treasury_transfer_id)` → `treasury_transfers(business_id,id)`.
+- `cash_transactions(business_id,reversal_of_transaction_id)` → `cash_transactions(business_id,id)`.
+- `expenses(business_id,cash_transaction_id)` → `cash_transactions(business_id,id)`.
+- `stock_movements(business_id,reversal_of_movement_id)` → `stock_movements(business_id,id)`.
+
+وبالتالي يلزم تجهيز مفاتيح مرجعية مركبة `UNIQUE(business_id,id)` على payments وcash_transactions وstock_movements، والتحقق من وجودها على treasury_transfers والجداول الأخرى. عند بناء القيود، تُراجع FKs الأحادية المكافئة وتُستبدل بقيود مركبة بدل إبقائها كمسار يسمح بالربط عبر نشاط آخر. لا تنفذ هذا التغيير قبل فحص تعريفات كل قيد وسياسة الحذف والـRPC التي تعتمد عليه.
