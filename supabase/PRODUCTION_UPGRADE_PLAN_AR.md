@@ -211,3 +211,10 @@ Preview تستدعي 37 اسم RPC فريدًا، وTest تغطيها عبر 39 
 ## بوابة الجاهزية النهائية
 
 تم إنشاء `GO_LIVE_READINESS_AR.md` لتوثيق عناصر الجاهزية المكتملة والمتبقية. لا يتم وصف Preview بأنها جاهزة للإنتاج حتى تكتمل شروط الفحوص، وتُبنى حزمة additive، وتنجح الاختبارات، وتحصل الترقية على موافقة صريحة. لا يوجد تغيير في Production حتى الآن.
+
+
+## مواصفات الجداول والفحص الهيكلي
+
+تم توثيق بنية الجداول السبعة الناقصة في `NEW_OPERATIONAL_TABLES_SPEC_AR.md` من Test الحالي، مع القيود والفهارس وسياسات RLS. لا تُنسخ FKs الضعيفة كما هي؛ تُضاف same-business constraints بعد فحص بيانات Production.
+
+تم إنشاء `verify_preview_schema.sql` وفُحص Test بنجاح: 18 جدولًا، 6 Views، 32 عمودًا، 39 RPC signature، 17 Trigger، و6 سياسات تشغيلية. فاحص `verify_setup.sql` القديم فشل على Test لأن توقيع `record_expense` تغير؛ راجع `VERIFICATION_SCRIPTS_AUDIT_AR.md`. لا يعتبر هذا اختبار معاملات أو إثباتًا لسلامة منطق العمليات.
