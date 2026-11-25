@@ -81,3 +81,50 @@
 - لا يشمل الدوال الداخلية التي لا تستدعيها الواجهة مباشرة إلا بقدر ظهورها كـhelper.
 - يلزم فحص ACL/ownership/definition لكل توقيع ضمن الحزمة النهائية.
 - لم يتم تنفيذ أي تعديل على قاعدة البيانات.
+
+
+## مراجعة تفاعل RPC مع قيود same-business — 25 نوفمبر 2026
+
+تمت قراءة تعريفات الدوال الفعلية في Test (وليس أسماء الجداول فقط) للدوال التي تنشئ أو تعكس دفعات/حركات خزنة/مخزون/مصروفات/تحويلات. النتائج:
+
+### الدوال التي تُدخل business_id صراحةً في السجلات
+
+- `record_invoice_payment`, `record_standalone_party_payment`, `record_expense`.
+- `post_purchase_with_method`, `post_sale_with_method` (التوقيع الحديث ذو 10 وسائط).
+- `post_purchase_return_with_settlement`, `post_sales_return` (كلا overloads).
+- `post_stock_adjustment`, `post_stock_condition_transfer`.
+- `create_treasury_transfer`, `reverse_treasury_transfer`.
+- دوال العكس: `owner_reverse_invoice_payment`, `owner_reverse_customer_invoice_payment`, `owner_reverse_standalone_party_payment`, `owner_void_invoice`, `owner_void_purchase_return`.
+
+في التعريفات التي تمت مراجعتها، عمليات INSERT ذات الصلة تكتب `business_id` من وسيط النشاط نفسه، وتصفية سجلات العكس/التحديث تستخدم `business_id` مع المعرفات. هذا مؤشر توافق ساكن مع القيود المركبة المقترحة، وليس إثباتًا عمليًا أن كل مسارات التنفيذ ستنجح.
+
+### المفاتيح المرجعية المركبة التي لا تظهر في Test حاليًا
+
+استعلام قيود PK/UNIQUE كشف أن الجداول التالية لا تملك حتى الآن `UNIQUE(business_id,id)` رغم أنها أهداف لعلاقات same-business المقترحة:
+
+- `payments`
+- `cash_transactions`
+- `stock_movements`
+- `expenses` (مطلوب فقط إذا أضيفت علاقة مركبة تشير إليها؛ لا تضفها بلا حاجة)
+
+المفاتيح المركبة موجودة بالفعل في Test على `customer_credit_ledger`, `purchase_returns`, `treasury_transfers`. لا نكررها.
+
+ملاحظة: `stock_adjustment_cost_snapshots` مفتاحه الأساسي `(business_id,movement_id)`، لذلك لا يحتاج مفتاحًا مكررًا على الزوج نفسه. أما `purchase_invoice_cost_snapshots` فمفتاحه الأساسي `(invoice_id,product_id)` ولا يُفترض أن يكون هدفًا لروابط تشغيلية قبل تصميم مستقل.
+
+### أثر مهم على ترتيب الحزمة
+
+1. إنشاء الجداول الجديدة مع المفاتيح الأساسية والفهارس وRLS.
+2. إضافة `UNIQUE(business_id,id)` إلى payments/cash_transactions/stock_movements، بعد فحص تكرارات الزوج (ينبغي أن تكون مستحيلة مع id PK لكن نفحصها قبل DDL).
+3. إضافة FKs المركبة للجداول الجديدة وروابط reversal/cash settlement على الجداول المشتركة.
+4. مراجعة/إزالة FKs الأحادية المكافئة بعد التحقق من أن كل FK مركب يغطي نفس ON DELETE behavior، مع الحفاظ على روابط auth.users وروابط business_id المنفصلة.
+5. بعدها فقط تثبيت الدوال والـtriggers والـviews والـACLs، ثم اختبار المعاملات على Test.
+
+### مخاطر تحتاج اختبارًا وظيفيًا على Test
+
+- `record_expense` ينشئ expense ثم cash_transaction ثم يحدّث expense بـ`cash_transaction_id`; أي FK مركب هنا يجب أن يكون متوافقًا مع نفس business_id على طرفي السجل.
+- عكس الدفعات يضيف payment عكسيًا ثم cash_transaction عكسيًا ويربط السجل الأصلي؛ يجب اختبار uniqueness ومنع العكس المكرر.
+- مرتجع المشتريات ينشئ stock movement/payment/cash transaction متصلة بالمرتجع؛ يجب اختبار business_id الموحد وسياسة الحذف.
+- `owner_void_invoice` و`owner_void_purchase_return` يضيفان حركات عكسية متعددة، ويجب اختبار عدم كسر القيود مع السجلات التاريخية.
+- يوجد overload قديم لـ`post_sale_with_method` بتسع وسائط، جسمه قصير (wrapper)، بجانب التوقيع الحديث ذي عشر وسائط. يجب الحفاظ على السلوك/التوجيه وعدم إسقاطه أثناء بناء الحزمة.
+
+لم يتم تعديل أي RPC أو تنفيذ أي SQL DDL/DML في هذه المراجعة.
