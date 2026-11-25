@@ -215,3 +215,21 @@
 - أُعيد جلب `preview/index.html` من فرع `development` والتحقق من وجود الفحص ورسالة رفض مشاركة المسار.
 
 لم يتم تنفيذ اختبار استعادة عملي أو رفع ملفات إلى Storage؛ التحقق هنا من حفظ التعديل ومراجعته ساكنًا فقط.
+
+
+## 16) استكمال توافق v2 مع أعمدة أضيفت بعد النسخة القديمة
+
+تمت مراجعة مصدر التوافق التاريخي `supabase/063_preserve_legacy_v2_backup_restore_compatibility.sql` ومقارنته بمسودة الإنتاج الحالية، ثم فحص خصائص الأعمدة في Test باستخدام استعلامات قراءة فقط. المراجعة أكدت قاعدة مهمة: غياب مفتاح JSON من سجل النسخة لا يعني أن PostgreSQL سيطبق DEFAULT؛ `jsonb_populate_recordset` ينتج NULL للحقل الغائب، وقد يفشل INSERT إذا كان العمود NOT NULL.
+
+**المعالجة التي أصبحت موجودة في مسودة الاستعادة:**
+- `parties.is_active`: يستخدم `true` فقط عندما يكون الحقل غائبًا أو NULL، مع الحفاظ على `false` الصريح. هذا يوافق النسخ الأقدم التي لم تكن تدعم أرشفة الأطراف.
+- `purchase_invoices.supplier_credit_applied_total`: يستخدم صفرًا عند غياب الحقل؛ لأن ميزة تطبيق رصيد المورد لم تكن موجودة في النسخ القديمة.
+- `sales_invoices.customer_credit_applied_total`: يستخدم صفرًا عند غياب الحقل؛ لأن ميزة تطبيق رصيد العميل لم تكن موجودة في النسخ القديمة.
+- تمت مراجعة الحقول المضافة التي عولجت بالفعل: `expenses.status`, `sales_returns.status`, `sales_returns.posted_at`, `sales_return_items.unit_price`, `payments.posted_at`, `stock_movements.posted_at`, `stock_movements.stock_bucket`, و`cash_transactions.account_method`.
+- حقول الأكواد الإلزامية الجديدة مثل `party_code`, `payment_code`, `movement_code`, `transaction_code`, و`expense_code` لا تملك DEFAULT في الجدول؛ تعتمد على Triggers توليد الأكواد. تم التحقق قراءة فقط من وجود Triggers المقابلة ومفعوليتها في Test. نجاحها في Production يظل مشروطًا بتطبيق دوال المساعدة والـTriggers المعتمدة قبل RPC الاستعادة.
+
+**نتيجة فحص خصائص الأعمدة في Test:** الحقول الثلاثة الأولى لها قيود NOT NULL/DEFAULT كما هو متوقع (`is_active=true`، وإجماليات الائتمان = 0). كما أن `sales_returns.invoice_due_reduced_total` و`payments.party_account_type` والروابط الجديدة الاختيارية Nullable، فلا تحتاج قيمة رجعية لمجرد منع فشل INSERT. لم يُضف أي تعديل إلى قاعدة Test أو Production.
+
+**التعديل:** أُضيفت فروع معالجة الأطراف وفواتير الشراء والبيع إلى `PRODUCTION_BACKUP_RESTORE_DRAFT.sql`، مع الحفاظ على القيم الموجودة وعدم استبدالها. أُعيد جلب الملف بعد التعديل والتحقق من وجود الفروع الثلاثة. Blob SHA المؤكد: `17a4691ba7f4de3b13e76917d26c4d165f980a4c`.
+
+**حدود التحقق:** هذه مراجعة ساكنة وقراءة metadata؛ لم يتم تشغيل استعادة v2 أو v3. يلزم اختبار fixture قديم حقيقي/مصطنع على قاعدة مؤقتة مجانية قبل اعتماد المسودة، خصوصًا اختبار الأطراف المؤرشفة، إجماليات الائتمان الغائبة، توليد الأكواد عبر Triggers، ومطابقة الأرصدة بعد الاستعادة.
