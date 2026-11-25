@@ -1632,9 +1632,17 @@ async function restoreBusinessBackup(){
  if(requiredTables.some(name=>!Array.isArray(backup.tables[name]))||(backup.tables.audit_log!==undefined&&!Array.isArray(backup.tables.audit_log)))return message("globalMessage","النسخة ناقصة أو تحتوي جداول بصيغة غير صالحة.");
  const images=backup.images??[];
  if(!Array.isArray(images))return message("globalMessage","قائمة صور النسخة غير صالحة.");
- const productRows=backup.tables.products,productPaths=new Set(productRows.map(p=>p.image_path).filter(Boolean));
+ const productRows=backup.tables.products,productPaths=new Set();
  const seenPaths=new Set(),uuid="[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
  try{
+  for(const product of productRows){
+   if(!product||typeof product.id!=="string")throw new Error("بيانات أحد المنتجات في النسخة غير صالحة.");
+   if(!product.image_path)continue;
+   const parts=product.image_path.split("/");
+   if(parts.length!==3||parts[0]!==activeBusinessId||parts[1]!==product.id||!new RegExp("^"+uuid+"\\.(jpg|png|webp)$","i").test(parts[2]))throw new Error("مسار صورة أحد المنتجات لا يطابق النشاط والمنتج.");
+   if(productPaths.has(product.image_path))throw new Error("لا يمكن ربط أكثر من منتج بمسار الصورة نفسه.");
+   productPaths.add(product.image_path);
+  }
   for(const image of images){
    if(!image||typeof image.path!=="string"||!productPaths.has(image.path)||seenPaths.has(image.path)||!["image/jpeg","image/png","image/webp"].includes(image.type)||typeof image.data!=="string")throw new Error("ملف النسخة يحتوي صورة غير مرتبطة بمنتج في هذا النشاط.");
    const parts=image.path.split("/");
