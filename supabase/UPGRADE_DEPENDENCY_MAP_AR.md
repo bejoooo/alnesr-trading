@@ -140,3 +140,8 @@ Test: `hxwcjbmlxbqrurrmjbpf` — Production: `njvaxrucfwgksqdfbckt`
 ## ملحق: اعتماديات الواجهة المباشرة
 
 راجع `PREVIEW_DATA_ACCESS_AUDIT_AR.md`: 18 جدولًا و6 Views تقرأ مباشرة، وكتابات مباشرة إلى `businesses`, `products`, و`parties`، واستخدام Storage bucket `product-images`. يجب الحفاظ على سياسات RLS والـgrants لهذه الكتابات، وإضافة `businesses.tagline` قبل نشر الواجهة.
+
+
+## ملحق: صلاحيات الأعمدة التي تكتبها الواجهة مباشرة
+
+تحديث `businesses.tagline` يحتاج column-level UPDATE لـauthenticated كما هو في Test؛ لا يكفي إنشاء العمود فقط. تبقى RLS policy `businesses_admin_update` التي تقصر الصفوف على owner/admin. أعمدة `parties.is_active` و`parties.party_code` تحتاج مراجعة SELECT بعد الإنشاء، ولا تمنح كتابة مباشرة إذا كانت تدار آليًا.
