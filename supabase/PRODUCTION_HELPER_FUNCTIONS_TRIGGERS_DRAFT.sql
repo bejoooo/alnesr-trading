@@ -67,136 +67,87 @@ set search_path = ''
 as $function$
 declare
   v_number bigint;
-  v_existing bigint;
   v_max_code bigint;
 begin
   if auth.uid() is null or not exists (
-    select 1
-    from public.business_members
-    where business_id=p_business_id
-      and user_id=auth.uid()
-      and active
-  ) then
-    raise exception 'Not authorized';
-  end if;
+    select 1 from public.business_members
+    where business_id=p_business_id and user_id=auth.uid() and active
+  ) then raise exception 'Not authorized'; end if;
 
   if p_operation_type not in (
     'purchase_invoice','sales_invoice','sales_return','purchase_return',
-    'party','payment','cash_transaction','expense','treasury_transfer',
-    'stock_movement'
-  ) then
-    raise exception 'Unsupported operation type';
-  end if;
+    'party','payment','cash_transaction','expense','treasury_transfer','stock_movement'
+  ) then raise exception 'Unsupported operation type'; end if;
 
-  perform pg_advisory_xact_lock(
-    hashtextextended(p_business_id::text || ':' || p_operation_type, 0)
-  );
+  perform pg_advisory_xact_lock(hashtextextended(p_business_id::text || ':' || p_operation_type, 0));
 
-  select last_number
-    into v_number
+  v_max_code := case p_operation_type
+    when 'purchase_invoice' then (
+      select max(substring(invoice_no from 7)::bigint)
+      from public.purchase_invoices
+      where business_id=p_business_id and invoice_no ~ '^[0-9]{6}[0-9]+$'
+    )
+    when 'sales_invoice' then (
+      select max(substring(invoice_no from 7)::bigint)
+      from public.sales_invoices
+      where business_id=p_business_id and invoice_no ~ '^[0-9]{6}[0-9]+$'
+    )
+    when 'sales_return' then (
+      select max(substring(return_no from 7)::bigint)
+      from public.sales_returns
+      where business_id=p_business_id and return_no ~ '^[0-9]{6}[0-9]+$'
+    )
+    when 'purchase_return' then (
+      select max(substring(return_no from 7)::bigint)
+      from public.purchase_returns
+      where business_id=p_business_id and return_no ~ '^[0-9]{6}[0-9]+$'
+    )
+    when 'party' then (
+      select max(substring(party_code from 7)::bigint)
+      from public.parties
+      where business_id=p_business_id and party_code ~ '^[0-9]{6}[0-9]+$'
+    )
+    when 'payment' then (
+      select max(substring(payment_code from 7)::bigint)
+      from public.payments
+      where business_id=p_business_id and payment_code ~ '^[0-9]{6}[0-9]+$'
+    )
+    when 'cash_transaction' then (
+      select max(substring(transaction_code from 7)::bigint)
+      from public.cash_transactions
+      where business_id=p_business_id and transaction_code ~ '^[0-9]{6}[0-9]+$'
+    )
+    when 'expense' then (
+      select max(substring(expense_code from 7)::bigint)
+      from public.expenses
+      where business_id=p_business_id and expense_code ~ '^[0-9]{6}[0-9]+$'
+    )
+    when 'treasury_transfer' then (
+      select max(substring(transfer_code from 7)::bigint)
+      from public.treasury_transfers
+      where business_id=p_business_id and transfer_code ~ '^[0-9]{6}[0-9]+$'
+    )
+    when 'stock_movement' then (
+      select max(substring(movement_code from 7)::bigint)
+      from public.stock_movements
+      where business_id=p_business_id and movement_code ~ '^[0-9]{6}[0-9]+$'
+    )
+    end;
+
+  select last_number into v_number
   from public.operation_counters
-  where business_id=p_business_id
-    and operation_type=p_operation_type
+  where business_id=p_business_id and operation_type=p_operation_type
   for update;
 
   if not found then
-    v_existing := case p_operation_type
-      when 'purchase_invoice' then (
-        select count(*) from public.purchase_invoices where business_id=p_business_id
-      )
-      when 'sales_invoice' then (
-        select count(*) from public.sales_invoices where business_id=p_business_id
-      )
-      when 'sales_return' then (
-        select count(*) from public.sales_returns where business_id=p_business_id
-      )
-      when 'purchase_return' then (
-        select count(*) from public.purchase_returns where business_id=p_business_id
-      )
-      when 'party' then (
-        select count(*) from public.parties where business_id=p_business_id
-      )
-      when 'payment' then (
-        select count(*) from public.payments where business_id=p_business_id
-      )
-      when 'cash_transaction' then (
-        select count(*) from public.cash_transactions where business_id=p_business_id
-      )
-      when 'expense' then (
-        select count(*) from public.expenses where business_id=p_business_id
-      )
-      when 'treasury_transfer' then (
-        select count(*) from public.treasury_transfers where business_id=p_business_id
-      )
-      when 'stock_movement' then (
-        select count(*) from public.stock_movements where business_id=p_business_id
-      )
-    end;
-
-    v_max_code := case p_operation_type
-      when 'purchase_invoice' then (
-        select max(substring(invoice_no from 7)::bigint)
-        from public.purchase_invoices
-        where business_id=p_business_id and invoice_no ~ '^[0-9]{6}[0-9]+$'
-      )
-      when 'sales_invoice' then (
-        select max(substring(invoice_no from 7)::bigint)
-        from public.sales_invoices
-        where business_id=p_business_id and invoice_no ~ '^[0-9]{6}[0-9]+$'
-      )
-      when 'sales_return' then (
-        select max(substring(return_no from 7)::bigint)
-        from public.sales_returns
-        where business_id=p_business_id and return_no ~ '^[0-9]{6}[0-9]+$'
-      )
-      when 'purchase_return' then (
-        select max(substring(return_no from 7)::bigint)
-        from public.purchase_returns
-        where business_id=p_business_id and return_no ~ '^[0-9]{6}[0-9]+$'
-      )
-      when 'party' then (
-        select max(substring(party_code from 7)::bigint)
-        from public.parties
-        where business_id=p_business_id and party_code ~ '^[0-9]{6}[0-9]+$'
-      )
-      when 'payment' then (
-        select max(substring(payment_code from 7)::bigint)
-        from public.payments
-        where business_id=p_business_id and payment_code ~ '^[0-9]{6}[0-9]+$'
-      )
-      when 'cash_transaction' then (
-        select max(substring(transaction_code from 7)::bigint)
-        from public.cash_transactions
-        where business_id=p_business_id and transaction_code ~ '^[0-9]{6}[0-9]+$'
-      )
-      when 'expense' then (
-        select max(substring(expense_code from 7)::bigint)
-        from public.expenses
-        where business_id=p_business_id and expense_code ~ '^[0-9]{6}[0-9]+$'
-      )
-      when 'treasury_transfer' then (
-        select max(substring(transfer_code from 7)::bigint)
-        from public.treasury_transfers
-        where business_id=p_business_id and transfer_code ~ '^[0-9]{6}[0-9]+$'
-      )
-      when 'stock_movement' then (
-        select max(substring(movement_code from 7)::bigint)
-        from public.stock_movements
-        where business_id=p_business_id and movement_code ~ '^[0-9]{6}[0-9]+$'
-      )
-    end;
-
-    v_existing := greatest(coalesce(v_existing,0),coalesce(v_max_code,0));
-
     insert into public.operation_counters(business_id,operation_type,last_number)
-    values(p_business_id,p_operation_type,v_existing+1)
+    values(p_business_id,p_operation_type,coalesce(v_max_code,0)+1)
     returning last_number into v_number;
   else
     update public.operation_counters
-    set last_number=last_number+1,
+    set last_number=greatest(last_number,coalesce(v_max_code,0))+1,
         updated_at=clock_timestamp()
-    where business_id=p_business_id
-      and operation_type=p_operation_type
+    where business_id=p_business_id and operation_type=p_operation_type
     returning last_number into v_number;
   end if;
 
@@ -340,24 +291,23 @@ begin
     return new;
   end if;
 
-  if tg_table_name not in ('sales_invoices','purchase_invoices') then
+  if tg_table_name = 'sales_invoices' then
+    v_kind := 'sales';
+    perform pg_advisory_xact_lock(hashtextextended(new.business_id::text || ':invoice:' || v_kind, 0));
+    select coalesce(max((substring(s.invoice_no from '([0-9]+)$'))::bigint),0)+1
+      into v_next
+    from public.sales_invoices s
+    where s.business_id=new.business_id and s.invoice_no ~ '[0-9]+$';
+  elsif tg_table_name = 'purchase_invoices' then
+    v_kind := 'purchases';
+    perform pg_advisory_xact_lock(hashtextextended(new.business_id::text || ':invoice:' || v_kind, 0));
+    select coalesce(max((substring(p.invoice_no from '([0-9]+)$'))::bigint),0)+1
+      into v_next
+    from public.purchase_invoices p
+    where p.business_id=new.business_id and p.invoice_no ~ '[0-9]+$';
+  else
     raise exception 'Automatic invoice numbering is not supported for this table';
   end if;
-
-  v_kind := case when tg_table_name='sales_invoices' then 'sales' else 'purchases' end;
-
-  perform pg_advisory_xact_lock(
-    hashtextextended(new.business_id::text || ':invoice:' || v_kind, 0)
-  );
-
-  execute format(
-    'select coalesce(max((substring(invoice_no from ''([0-9]+)$''))::bigint),0)+1
-       from public.%I
-      where business_id=$1 and invoice_no ~ ''[0-9]+$''',
-    tg_table_name
-  )
-  into v_next
-  using new.business_id;
 
   new.invoice_no := v_next::text;
   return new;
