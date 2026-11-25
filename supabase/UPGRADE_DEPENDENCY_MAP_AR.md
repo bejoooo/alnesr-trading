@@ -124,3 +124,14 @@ Test: `hxwcjbmlxbqrurrmjbpf` — Production: `njvaxrucfwgksqdfbckt`
 - لم تُنشأ Migration تنفيذية لProduction.
 - لم يتغير أي شيء في Production أو main أو Edge Function.
 - لا تعتبر هذه الوثيقة موافقة لتطبيق الحزمة.
+
+
+## ملحق: نتائج المطابقة التفصيلية للـRPC
+
+تم إنشاء `RPC_COMPATIBILITY_MATRIX_AR.md` بعد إعادة استخراج كل استدعاءات Preview من blob الحالي:
+- 37 اسم RPC فريدًا.
+- 39 توقيعًا في Test.
+- 10 توقيعات تحت الأسماء المطلوبة في Production.
+- 9 توقيعات مطابقة حرفيًا.
+- 30 توقيعًا مطلوبًا غير متاح في Production بالتوقيع نفسه.
+- `record_expense` موجود بالاسم لكنه لا يقبل `p_method`؛ لذلك لا يُعد متوافقًا.
