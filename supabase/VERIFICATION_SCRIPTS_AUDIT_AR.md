@@ -59,3 +59,13 @@
 - `verify_setup.sql` يبقى مرجعًا تاريخيًا للتأسيس الأول، ولا يُستخدم بوصفه فاحص Preview الحالي.
 - `verify_preview_schema.sql` هو الفاحص الهيكلي المرجعي لنسخة Preview الحالية.
 - بعد إعداد حزمة Production، يُشغّل الفاحص على Production بعد الترقية المعتمدة، مع فحوص إضافية خاصة ببيانات baseline والعلاقات same-business.
+
+
+### تقوية فاحص Preview
+
+تم توسيع `verify_preview_schema.sql` ليتحقق أيضًا من:
+- أن كل Views الستة تستخدم `security_invoker=true`.
+- أن كل توقيع RPC من الـ39 يستخدم `SECURITY DEFINER` و`search_path=""`.
+- استمرار EXECUTE لـauthenticated فقط، ورفض anon وPUBLIC.
+
+أُعيد تشغيل النسخة المقوّاة على Test واجتازت الفحص.
