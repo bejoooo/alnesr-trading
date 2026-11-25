@@ -646,3 +646,61 @@
 
 **حالة المتطلب**
 مسجل كمتطلب معتمد للمراجعة المستقبلية فقط. لم يتم تعديل الواجهة أو قاعدة البيانات لتنفيذه، تماشيًا مع قرار المستخدم الحالي بإيقاف التعديلات الوظيفية والتركيز على التحقق والترقية. لا تنقل أي بيانات أو تخصيصات تاريخية مفترضة إلى Production.
+
+
+### خريطة اعتماديات RPC والـViews وترتيب حزمة الترقية (25 نوفمبر 2026)
+
+تم استخراج مراجع كائنات `public.*` من أجسام الدوال في Test باستخدام قراءة `pg_get_functiondef`، ومراجعة تعريفات Views التشغيلية. هذه خريطة اعتماديات ساكنة وليست اختبار تشغيل أو تحليلًا كاملًا لكل SQL ديناميكي.
+
+**مجموعات الدوال واعتمادياتها الأساسية**
+
+1. **المشتريات وترحيلها**
+   - `post_purchase_with_method`: `businesses/parties/products/purchase_invoices/purchase_items/stock_movements/purchase_invoice_cost_snapshots/payments/cash_transactions/treasury_transfers`، بالإضافة إلى `has_business_permission`, `next_operation_code`, `party_account_balances`, `cash_balances`, `audit_log`.
+   - `post_purchase_return_with_settlement`: `purchase_invoices/purchase_items/purchase_returns/purchase_return_items/products/stock_movements/payments/cash_transactions`، بالإضافة إلى `party_account_balances`, `has_business_permission`, `next_operation_code`, `audit_log`.
+   - `owner_void_purchase_return`: `purchase_returns/purchase_return_items/purchase_invoices/products/stock_movements/payments/cash_transactions`، بالإضافة إلى `cash_balances`, `treasury_transfers`, `party_account_balances`, `has_business_permission`, `audit_log`.
+   - `receive_supplier_credit`: `parties/payments/cash_transactions` و`party_account_balances` و`has_business_permission` و`audit_log`.
+
+2. **المبيعات والمرتجعات**
+   - `post_sale_with_method` (التوقيع الحديث): `businesses/parties/products/sales_invoices/sales_items/stock_movements/payments/cash_transactions/customer_credit_ledger`، بالإضافة إلى `has_business_permission`, `next_operation_code`, `audit_log`.
+   - `post_sales_return`: `sales_invoices/sales_items/sales_returns/sales_return_items/products/stock_movements/payments/cash_transactions/customer_credit_ledger`، بالإضافة إلى `cash_balances`, `treasury_transfers`, `has_business_permission`, `next_operation_code`, `audit_log`.
+   - `owner_void_invoice`: يعتمد على فواتير الشراء والبيع وبنودها، `purchase_invoice_cost_snapshots`, `products/stock_movements`, `payments/cash_transactions/treasury_transfers/customer_credit_ledger/sales_returns`, و`cash_balances` و`audit_log`.
+   - `owner_remove_sales_return`: `sales_returns/sales_return_items/sales_items/sales_invoices/products/stock_movements/payments/cash_transactions/customer_credit_ledger`، بالإضافة إلى `business_members` و`audit_log`.
+
+3. **الدفعات والرصيد الدائن**
+   - `record_invoice_payment`: `payments/purchase_invoices/sales_invoices/cash_transactions/treasury_transfers` و`has_business_permission` و`audit_log`.
+   - `record_standalone_party_payment`: `parties/payments/cash_transactions/treasury_transfers` و`has_business_permission` و`audit_log`.
+   - دوال عكس دفعات الفواتير/الدفعات المستقلة تعتمد على `payments`, `cash_transactions`, الفواتير المناسبة، `treasury_transfers`, `cash_balances`, `customer_credit_ledger`, `business_members`, `audit_log`.
+   - `pay_customer_credit`: `customer_credit_ledger/parties/payments/cash_transactions/treasury_transfers` و`cash_balances` و`has_business_permission` و`audit_log`.
+
+4. **الخزنة والمخزون والمصروفات**
+   - `create_treasury_transfer` و`reverse_treasury_transfer`: `treasury_transfers/payments/cash_transactions/cash_balances` و`has_business_permission` و`audit_log`.
+   - `record_treasury_deposit` و`record_treasury_withdrawal` و`record_expense`: `cash_transactions`، وبعضها يعتمد على `cash_balances/payments/treasury_transfers/expenses`، مع `has_business_permission` و`audit_log`.
+   - `post_stock_adjustment` و`post_stock_condition_transfer` و`owner_reverse_stock_adjustment`: `products/stock_movements/stock_adjustment_cost_snapshots` و`has_business_permission` و`business_members` و`audit_log`.
+
+5. **النسخ الاحتياطي والتصفير**
+   - `reset_business_data` و`restore_business_backup` تعتمدان على نطاق واسع من جداول النشاط، منها الفواتير والبنود والدفعات والحركات والمرتجعات والرصيد الدائن واللقطات والتحويلات والإعدادات وسجل التدقيق. يجب عدم نقل أو تشغيل هاتين الدالتين على Production ضمن حزمة الترقية العادية؛ تحتاجان مسارًا مستقلًا وموافقة صريحة واختبارات استعادة منفصلة.
+
+**اعتماديات Views التشغيلية**
+- `cash_balances` مبني على `cash_transactions` ويجمع `account_method='cash'` فقط.
+- `product_stock_balances` مبني على `products + stock_movements`، ويفصل `sellable` عن `damaged` ويعرض `quantity_on_hand`, `damaged_quantity`, `total_stock_quantity`, `has_stock_history`, `out_of_stock`.
+- `party_account_balances` يعتمد على `parties`, فواتير البيع والشراء، `payments`, `sales_returns`, `purchase_returns`، ويحسب `purchase_returns_total` و`customer_net_collected`.
+- `party_account_statement` يجمع الرصيد الافتتاحي والفواتير والدفعات وعكسها والمرتجعات، ويعرض `entry_timestamp` ويراعي حالة الإلغاء.
+- `customer_credit_balances` و`customer_credit_return_balances` مبنيان على `customer_credit_ledger`.
+
+**ترتيب الترقية المستنتج من الاعتماديات**
+1. حماية خط الأساس ونسخ احتياطي قابل للتحقق، وجرد تعارضات الأكواد والقيود.
+2. إضافة أعمدة الجداول الأم ومفاتيحها الفريدة المركبة اللازمة لفرض same-business.
+3. إنشاء الجداول السبعة الجديدة بقيودها وفهارسها، ثم RLS والمنح بالحد الأدنى.
+4. إنشاء/تحديث Views بعد اكتمال الجداول والأعمدة.
+5. إنشاء Triggers الترقيم بعد إصلاح تهيئة `operation_counters` وفحص الأكواد الموجودة.
+6. نشر RPCs الأساسية للمخزون والمشتريات والمبيعات والدفعات والخزنة بترتيب اعتمادياتها، مع صلاحيات EXECUTE محددة.
+7. نشر RPCs العكس والإلغاء بعد اكتمال القيود وروابط العكس وViews.
+8. نشر مسارات النسخ الاحتياطي/الاستعادة فقط بعد اختبار مستقل؛ لا تدخل في ترقية التشغيل المعتادة.
+9. فحص الواجهة مقابل أسماء الأعمدة والتواقيع والصلاحيات، ثم اختبارات تحقق غير مالية، ثم خطة التحويل النهائي.
+
+**نقاط توقف قبل إعداد SQL النهائي**
+- حسم قاعدة احتساب متوسط التكلفة: هل تدخل الكميات التالفة في مقام المتوسط أم يقتصر المتوسط على الكمية القابلة للبيع؟ يوجد اختلاف بين منطق الشراء ومنطق تسوية الزيادة كما سبق توثيقه، ولا يجوز اختيار أحدهما ضمنيًا.
+- استعادة/إعادة بناء التغييرات التي لا يتوفر مصدرها الأصلي (خصوصًا 055 و056 وغيرها المذكورة أعلاه) من مصدر موثوق ومراجعة تعريفاتها، وعدم اختراع بديل جزئي.
+- التحقق من كل تعريف RPC وتوقيعاته ومنح EXECUTE ومالك الدالة و`search_path` في Production بعد إعداد الحزمة.
+- حسم سياسة same-business constraints بعد فحص المفاتيح الأم والبيانات الفعلية.
+- إعداد الحزمة لا يعني تنفيذها. لا توجد كتابة DDL/DML على أي قاعدة في هذه الجولة؛ جرى استخراج تعريفات وقراءة Views فقط.
