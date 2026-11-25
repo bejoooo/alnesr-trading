@@ -1367,7 +1367,7 @@ async function loadReports(){
    const [b,sr,prior]=await Promise.all([
     fetchAllRows(()=>client.from("party_account_balances").select("party_id,kind,name,phone,opening_balance,sales_total,purchases_total,customer_payments,supplier_payments,returns_total,customer_net_balance,supplier_net_balance").eq("business_id",activeBusinessId).order("party_id",{ascending:true})),
     fetchReportRows("party_account_statement","party_id,party_name,entry_id,entry_type,reference_no,entry_date,entry_timestamp,debit,credit,description","entry_date",from,to),
-    fetchAllRows(()=>client.from("party_account_statement").select("party_id,debit,credit").eq("business_id",activeBusinessId).lt("entry_date",from))
+    fetchAllRows(()=>client.from("party_account_statement").select("party_id,debit,credit,entry_date,entry_timestamp,entry_id").eq("business_id",activeBusinessId).lt("entry_date",from).order("entry_date",{ascending:true}).order("entry_timestamp",{ascending:true}).order("entry_id",{ascending:true}))
    ]);
    if(b.error)throw b.error;
    reportData.partyBalances=b.data||[];
