@@ -1023,3 +1023,6 @@
 - `RPC_DEPENDENCY_MAP_AR.md`: اعتماديات كل توقيع RPC من الجداول والـhelpers، مع ترتيب بناء الحزمة.
 - `PRODUCTION_PREFLIGHT_READONLY.sql`: فحص baseline قراءة فقط قبل/بعد الترقية.
 - `PRODUCTION_PREFLIGHT_RESULTS_AR.md`: نتائج فحص Production الحالية؛ 16 جدولًا أساسيًا، نشاط واحد وعضوية مالك نشطة واحدة، لا حركات تشغيلية، RLS مفعّل على كل الجداول، وbucket الصور خاص وفارغ.
+
+
+تم تقوية `verify_preview_schema.sql` ليتحقق من `security_invoker=true` لكل Views الستة، ومن `SECURITY DEFINER` و`search_path=""` لكل توقيعات RPC الـ39، بالإضافة إلى ACL. أُعيد تشغيله على Test واجتاز.
