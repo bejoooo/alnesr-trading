@@ -2258,3 +2258,12 @@ RLS مفعّل على الجداول العشرة كلها. جداول النس�
 - `sales_invoices.customer_credit_applied_total`: صفر عند غياب الحقل من النسخ التي سبقت تطبيق رصيد العميل.
 
 تم فحص NOT NULL/DEFAULT والـTriggers في Test باستعلامات قراءة فقط، وأُعيد جلب ملف المسودة للتأكد من حفظ التعديل. لم يتم تشغيل Restore على Test أو Production؛ الاختبار الوظيفي بملفات v2/v3 على قاعدة مؤقتة ما زال مطلوبًا. تفاصيل الفحص في `supabase/PRODUCTION_BACKUP_RESET_AUDIT_AR.md`.
+
+
+### حماية متوسط تكلفة المخزون أثناء استعادة النسخ
+
+تم تعديل مسودة `PRODUCTION_BACKUP_RESTORE_DRAFT.sql` لمنع Trigger مرتجع العميل من إعادة احتساب متوسط التكلفة فوق القيمة النهائية المستوردة. المسودة تتحقق أولًا من وجود الـTrigger وتفعيله، ثم توقف هذا الـTrigger وحده أثناء إدخال `stock_movements` وتعيد تفعيله قبل إكمال الاستعادة؛ بقية Triggers والقيود تظل فعالة. أُضيف اختبار انحدار للتحقق من تطابق `products.average_cost` و`stock_movements.average_cost_before` مع النسخة.
+
+تنبيه: النسخ v2 الأقدم من migration 061 قد لا تحتوي `stock_movements.average_cost_before`. يمكن حفظ الحالة الحالية، لكن إلغاء مرتجع جيد قديم يظل ممنوعًا بأمان إذا لم يكن متوسط التكلفة السابق مسجلًا. التعديل موثق في `supabase/PRODUCTION_BACKUP_RESET_AUDIT_AR.md`.
+
+لم يتم تنفيذ استعادة فعلية أو تعطيل Trigger في أي قاعدة؛ التحقق حتى الآن ساكن ومن خلال metadata في Test فقط.
