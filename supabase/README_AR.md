@@ -950,3 +950,10 @@
 النتيجة: Test نفسها لا تفرض نشاطًا موحدًا على كل العلاقات الجديدة؛ بعض FKs في `purchase_returns`, `purchase_return_items`, `customer_credit_ledger`, snapshots، وروابط عكس الدفعات/حركات الخزنة تعتمد على UUID فقط. كما أن `purchase_items`, `payments`, `cash_transactions`, و`stock_movements` تفتقد مفاتيح `UNIQUE(business_id,id)` المطلوبة لبعض العلاقات المركبة.
 
 **القرار:** لا ننسخ قيود Test حرفيًا. حزمة Production يجب أن تضيف مفاتيح أم مناسبة وتفرض FKs مركبة same-business بعد فحص البيانات، دون حذف قيود قديمة تلقائيًا. لم يتم تنفيذ أي DDL.
+
+
+### إعادة جرد كامل لبيانات Production قبل الترقية
+
+تم تنفيذ `COUNT(*)` على كل الجداول الأساسية الـ16 في `public` بقاعدة Production. النتيجة: صف واحد في `businesses` وصف واحد في `business_members`، وصفر في الجداول التشغيلية الـ14 الأخرى التي ظهرت في الجرد. تم حفظ الأرقام في `supabase/PRODUCTION_BASELINE_AR.md` لتكون مقارنة قبل/بعد الترقية.
+
+هذا لا يشمل سجلات Auth الداخلية أو إعدادات Auth أو ملفات Storage، ويجب فحصها منفصلًا. لم تتم أي كتابة على Production.
