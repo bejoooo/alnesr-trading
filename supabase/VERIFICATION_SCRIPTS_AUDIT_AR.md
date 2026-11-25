@@ -99,3 +99,10 @@
 
 - `verify_test_helper_baseline.sql`: فاحص قراءة فقط للحالة الحالية في Test. **اجتاز**، وأكد 8 دوال و8 Triggers وACL مقيد. يتسامح فقط مع استثناءين معروفين في Test قبل مرحلة التوحيد: `guard_product_average_cost` و`assign_automatic_invoice_number` يستخدمان `search_path=public`.
 - `verify_production_helpers.sql`: فاحص صارم لما بعد ترقية Production؛ يشترط `search_path=''` لكل الدوال الثماني، ويفحص SECURITY DEFINER وACL. لم يُشغّل على Test الحالي أو Production بعد.
+
+
+## 8. فاحص أول دفعة RPCs المالية
+
+أُضيف `verify_production_rpc_batch.sql` لفحص 10 توقيعات RPC الخاصة بالخزنة والمدفوعات والمصروفات والأرصدة الافتتاحية، والتحقق من SECURITY DEFINER و`search_path=''` وACL لـauthenticated/service_role ومنع anon وPUBLIC.
+
+**نتيجة التشغيل على Test: اجتاز.** الفاحص يقرأ كتالوج PostgreSQL فقط ولا ينفذ RPCs أو عمليات مالية. لا يثبت صحة العمليات أو أرصدة الخزنة، ويجب إعادة تشغيله على Production بعد الترقية المعتمدة.
