@@ -51,6 +51,43 @@ begin
   ) then
     raise exception 'Required customer-return average-cost trigger is missing or disabled';
   end if;
+
+  -- Restore depends on validated same-business composite FKs from the structural
+  -- hardening stage; otherwise a crafted backup could reference another tenant's row.
+  if exists (
+    select 1
+    from (values
+      ('payments','payments_reversal_same_business_fk'),
+      ('cash_transactions','cash_payment_same_business_fk'),
+      ('cash_transactions','cash_transfer_same_business_fk'),
+      ('cash_transactions','cash_reversal_same_business_fk'),
+      ('expenses','expense_cash_same_business_fk'),
+      ('stock_movements','stock_reversal_same_business_fk'),
+      ('purchase_returns','purchase_return_invoice_same_business_fk'),
+      ('purchase_returns','purchase_return_supplier_same_business_fk'),
+      ('purchase_return_items','purchase_return_item_parent_same_business_fk'),
+      ('purchase_return_items','purchase_return_item_source_same_business_fk'),
+      ('purchase_return_items','purchase_return_item_product_same_business_fk'),
+      ('customer_credit_ledger','customer_credit_party_same_business_fk'),
+      ('customer_credit_ledger','customer_credit_return_same_business_fk'),
+      ('customer_credit_ledger','customer_credit_invoice_same_business_fk'),
+      ('customer_credit_ledger','customer_credit_payment_same_business_fk'),
+      ('customer_credit_ledger','customer_credit_reversal_same_business_fk'),
+      ('purchase_invoice_cost_snapshots','purchase_cost_snapshot_invoice_same_business_fk'),
+      ('purchase_invoice_cost_snapshots','purchase_cost_snapshot_product_same_business_fk'),
+      ('stock_adjustment_cost_snapshots','stock_cost_snapshot_movement_same_business_fk'),
+      ('stock_adjustment_cost_snapshots','stock_cost_snapshot_product_same_business_fk')
+    ) required(table_name,constraint_name)
+    where not exists (
+      select 1 from pg_constraint pc
+      where pc.connamespace='public'::regnamespace
+        and pc.conrelid=format('public.%I',required.table_name)::regclass
+        and pc.conname=required.constraint_name
+        and pc.contype='f' and pc.convalidated
+    )
+  ) then
+    raise exception 'Required validated same-business foreign keys are missing; apply the structural FK stage first';
+  end if;
 end
 $preflight$;
 
