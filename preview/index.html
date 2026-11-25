@@ -1518,7 +1518,7 @@ function exportReportsExcel(){
  message("globalMessage","تم تجهيز ملف Excel بالتقارير المتاحة حسب صلاحيات حسابك.");
 }
 
-const backupTables=["products","parties","purchase_invoices","purchase_items","purchase_invoice_cost_snapshots","sales_invoices","sales_items","payments","stock_movements","stock_adjustment_cost_snapshots","sales_returns","sales_return_items","expenses","cash_transactions","business_settings","audit_log"];
+const backupTables=["products","parties","purchase_invoices","purchase_items","purchase_invoice_cost_snapshots","sales_invoices","sales_items","sales_returns","sales_return_items","purchase_returns","purchase_return_items","payments","customer_credit_ledger","stock_movements","stock_adjustment_cost_snapshots","treasury_transfers","cash_transactions","expenses","business_settings","audit_log"];
 async function fetchBackupRows(table){
  let rows=[],from=0,step=1000;
  while(true){
@@ -1578,7 +1578,7 @@ async function exportBusinessBackup(){
   const tables={};
   for(const name of backupTables)tables[name]=await fetchBackupRows(name);
   const images=await exportProductImages(tables.products);
-  const backup={format_version:"alnesr-business-backup-v2",created_at:new Date().toISOString(),business_id:activeBusinessId,business_name:$("welcome").textContent,tables,images};
+  const backup={format_version:"alnesr-business-backup-v3",created_at:new Date().toISOString(),business_id:activeBusinessId,business_name:$("welcome").textContent,tables,images};
   const blob=new Blob([JSON.stringify(backup)],{type:"application/json"});
   if(blob.size>100*1024*1024)return message("globalMessage","حجم النسخة تجاوز الحد الحالي (100 ميجابايت). قلّل عدد/حجم الصور أو البيانات قبل إنشاء النسخة.");
   const url=URL.createObjectURL(blob),link=document.createElement("a");
@@ -1594,8 +1594,8 @@ async function restoreBusinessBackup(){
  if(file.size>100*1024*1024)return message("globalMessage","حجم الملف أكبر من الحد المسموح (100 ميجابايت).");
  let backup;
  try{backup=JSON.parse(await file.text());}catch(e){return message("globalMessage","الملف ليس JSON صالحًا.");}
- if(backup?.format_version!=="alnesr-business-backup-v2"||backup?.business_id!==activeBusinessId||!backup.tables||typeof backup.tables!=="object")return message("globalMessage","النسخة لا تخص هذا النشاط أو إصدارها غير مدعوم.");
- const requiredTables=["products","parties","purchase_invoices","purchase_items","purchase_invoice_cost_snapshots","sales_invoices","sales_items","payments","stock_movements","stock_adjustment_cost_snapshots","sales_returns","sales_return_items","expenses","cash_transactions","business_settings"];
+ if(backup?.format_version!=="alnesr-business-backup-v3"||backup?.business_id!==activeBusinessId||!backup.tables||typeof backup.tables!=="object")return message("globalMessage","النسخة لا تخص هذا النشاط أو إصدارها غير مدعوم.");
+ const requiredTables=["products","parties","purchase_invoices","purchase_items","purchase_invoice_cost_snapshots","sales_invoices","sales_items","sales_returns","sales_return_items","purchase_returns","purchase_return_items","payments","customer_credit_ledger","stock_movements","stock_adjustment_cost_snapshots","treasury_transfers","cash_transactions","expenses","business_settings"];
  if(requiredTables.some(name=>!Array.isArray(backup.tables[name]))||(backup.tables.audit_log!==undefined&&!Array.isArray(backup.tables.audit_log)))return message("globalMessage","النسخة ناقصة أو تحتوي جداول بصيغة غير صالحة.");
  const images=backup.images??[];
  if(!Array.isArray(images))return message("globalMessage","قائمة صور النسخة غير صالحة.");
