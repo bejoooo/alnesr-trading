@@ -218,3 +218,8 @@ Preview تستدعي 37 اسم RPC فريدًا، وTest تغطيها عبر 39 
 تم توثيق بنية الجداول السبعة الناقصة في `NEW_OPERATIONAL_TABLES_SPEC_AR.md` من Test الحالي، مع القيود والفهارس وسياسات RLS. لا تُنسخ FKs الضعيفة كما هي؛ تُضاف same-business constraints بعد فحص بيانات Production.
 
 تم إنشاء `verify_preview_schema.sql` وفُحص Test بنجاح: 18 جدولًا، 6 Views، 32 عمودًا، 39 RPC signature، 17 Trigger، و6 سياسات تشغيلية. فاحص `verify_setup.sql` القديم فشل على Test لأن توقيع `record_expense` تغير؛ راجع `VERIFICATION_SCRIPTS_AUDIT_AR.md`. لا يعتبر هذا اختبار معاملات أو إثباتًا لسلامة منطق العمليات.
+
+
+## خريطة اعتماديات RPC وPreflight Production
+
+تم إنشاء `RPC_DEPENDENCY_MAP_AR.md` لربط 39 توقيع RPC بالجداول والـhelpers، وتحديد ترتيب البناء. كما أُنشئ `PRODUCTION_PREFLIGHT_READONLY.sql` وشُغّل على Production قراءة فقط. النتائج موثقة في `PRODUCTION_PREFLIGHT_RESULTS_AR.md`: نشاط واحد وعضوية مالك نشطة واحدة، لا سجلات تشغيلية في الجداول الـ14، RLS مفعّل على الجداول الـ16، وbucket الصور خاص وفارغ. تُحفظ هذه الحالة وتُقارن بعد الترقية؛ لا تُحذف العضوية أو النشاط.
