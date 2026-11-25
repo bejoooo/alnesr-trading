@@ -78,3 +78,14 @@ Blob: `786bdfab945aa605b8f317cb8dcace809bdd8b66`
 ## الحدود
 
 تحليل الاستدعاءات ساكن؛ لا يعني أن كل مسار واجهة اختُبر فعليًا. لم يتم تنفيذ إدراج أو تحديث أو حذف أو رفع ملفات في Test أو Production.
+
+
+## 6. Grants العمودية المطلوبة للواجهة
+
+تم فحص ACL والـcolumn privileges في Test وProduction:
+- جدول `businesses` يمنح authenticated تحديث أعمدة محددة بالاسم؛ في Test يوجد UPDATE على `tagline`، لكنه غير موجود في Production لأن العمود نفسه غير موجود.
+- بعد إضافة `businesses.tagline` يجب منح UPDATE على العمود لـauthenticated بما يطابق Test، مع بقاء RLS policy `businesses_admin_update` هي الحاجز الفعلي الذي يقصر التحديث على owner/admin.
+- `parties.is_active` و`parties.party_code` موجودان في Test ويُتاح SELECT لهما؛ Production لا يملك العمودين. يجب مراجعة grants بعد إضافتهما وعدم منح INSERT/UPDATE يدويًا إذا كانت قيمتهما تُدار عبر trigger أو default.
+- لا تعتمد على `has_table_privilege(...,'UPDATE')` وحده؛ بعض الكتابات مصرح بها عبر column-level grants فقط.
+
+لم يتم تعديل ACL.
