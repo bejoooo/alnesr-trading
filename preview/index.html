@@ -1011,6 +1011,13 @@ async function loadCustomerStatement(c){
  $("customerStatementRows").innerHTML=statementEntries.map(x=>'<tr><td>'+dateTimeCell(x.entry_date,x.entry_timestamp)+'</td><td>'+esc(labels[x.entry_type]||x.entry_type)+'</td><td>'+esc(x.reference_no||"—")+'</td><td>'+money(x.debit)+'</td><td>'+money(x.credit)+'</td><td>'+esc(x.description||"")+(((x.entry_type==="standalone_payment"&&(Number(x.credit)>0||Number(x.debit)>0))||(x.entry_type==="payment"&&Number(x.credit)>0&&!String(x.description||"").includes("قيد عكسي")))&&memberships.find(m=>m.business_id===activeBusinessId)?.role==="owner"?' <button type="button" class="tiny danger-button" data-reverse-payment="'+x.entry_id+'" data-payment-kind="'+(x.entry_type==="payment"?"invoice":"standalone")+'">عكس الدفعة</button>':"")+'</td></tr>').join("")||'<tr><td colspan="6">لا توجد حركات حساب.</td></tr>';
  $("customerStatementRows").querySelectorAll("[data-reverse-payment]").forEach(b=>b.addEventListener("click",()=>b.dataset.paymentKind==="invoice"?reverseCustomerInvoicePayment(b.dataset.reversePayment,c):reverseStandalonePayment(b.dataset.reversePayment,"customer",c)));
  const creditRows=lr.data||[],creditById=new Map(creditRows.map(x=>[x.id,x])),referenceById=new Map(statementEntries.filter(x=>x.entry_id).map(x=>[x.entry_id,x.reference_no||""]));
+ const payoutPaymentIds=[...new Set(creditRows.map(x=>x.payment_id).filter(Boolean))],creditPayments=[];
+ for(let i=0;i<payoutPaymentIds.length;i+=100){
+  const paymentResult=await fetchAllRows(()=>client.from("payments").select("id,payment_code,reference").eq("business_id",activeBusinessId).in("id",payoutPaymentIds.slice(i,i+100)));
+  if(paymentResult.error)return fail(paymentResult.error);
+  creditPayments.push(...(paymentResult.data||[]));
+ }
+ creditPayments.forEach(x=>referenceById.set(x.id,x.payment_code||x.reference||""));
  const orderedCreditRows=[...creditRows].sort((a,b)=>String(a.created_at||"").localeCompare(String(b.created_at||""))||String(a.id||"").localeCompare(String(b.id||"")));
  let runningCredit=0;
  const creditWithBalances=orderedCreditRows.map(x=>{
