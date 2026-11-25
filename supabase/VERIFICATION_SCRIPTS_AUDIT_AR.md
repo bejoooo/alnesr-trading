@@ -113,3 +113,10 @@
 أُضيف `verify_production_posting_rpc_batch.sql` لفحص 10 توقيعات RPC، بما فيها overloads القديمة والحديثة، والتحقق من SECURITY DEFINER و`search_path=''` وصلاحيات authenticated/service_role ومنع anon وPUBLIC.
 
 **نتيجة التشغيل على Test: اجتاز.** الفاحص قراءة كتالوجات فقط ولا ينفذ أي عملية مالية. لا يثبت صحة توزيع الخصومات أو أرصدة المخزون أو المرتجعات أو القيود المحاسبية.
+
+
+## 10. فاحص دفعة صلاحيات المالك
+
+أُضيف `verify_production_owner_rpc_batch.sql` للتحقق من 17 توقيعًا، وSECURITY DEFINER، و`search_path=''`، وفحص auth.uid وbusiness_members، وACL لـauthenticated/service_role مع منع anon وPUBLIC.
+
+**نتيجة التشغيل على Test: اجتاز.** الفاحص قراءة كتالوجات فقط ولا ينفذ حذفًا أو عكسًا أو إلغاءً لأي حركة.
