@@ -710,7 +710,17 @@ async function saveProduct(e){
  }else if(existing?.image_path&&!removeImage)p.image_path=existing.image_path;else if(removeImage)p.image_path=null;
  if(!id)p.id=productId;
  const updatePayload={...p};delete updatePayload.business_id;const result=id?await client.from("products").update(updatePayload).eq("id",id).eq("business_id",activeBusinessId).select("id").maybeSingle():await client.from("products").insert(p).select("id").single();
- if(result.error||!result.data){if(uploadedPath)await client.storage.from("product-images").remove([uploadedPath]);if(result.error)return fail(result.error);return message("globalMessage","لم يتم العثور على المنتج أو لا توجد صلاحية لحفظه؛ لم يتم اعتماد التعديل.");}
+ if(result.error||!result.data){
+  if(uploadedPath){
+   const {data:confirmedProduct,error:checkError}=await client.from("products").select("id,image_path").eq("id",productId).eq("business_id",activeBusinessId).maybeSingle();
+   if(checkError){console.warn("Could not verify product image after an uncertain save result; retaining uploaded image.",checkError);return message("globalMessage","تعذر تأكيد نتيجة الحفظ. احتفظنا بالصورة لتجنب حذف صورة قد يكون المنتج قد ارتبط بها. حدّث قائمة المنتجات قبل إعادة المحاولة.");}
+   if(confirmedProduct?.image_path===uploadedPath)return message("globalMessage","الصورة محفوظة ومرتبطة بالمنتج، لكن تعذر تأكيد استجابة الحفظ. حدّث قائمة المنتجات للتحقق قبل إعادة المحاولة.");
+   const {error:cleanupError}=await client.storage.from("product-images").remove([uploadedPath]);
+   if(cleanupError)console.warn("Unreferenced uploaded product image cleanup failed:",cleanupError);
+  }
+  if(result.error)return fail(result.error);
+  return message("globalMessage","لم يتم العثور على المنتج أو لا توجد صلاحية لحفظه؛ لم يتم اعتماد التعديل.");
+ }
  if(existing?.image_path&&(uploadedPath||removeImage)){client.storage.from("product-images").remove([existing.image_path]).then(({error:removeErr})=>{if(removeErr)console.warn("Old product image cleanup failed:",removeErr.message);}).catch(removeErr=>console.warn("Old product image cleanup failed:",removeErr));}
  show("productEditor",false);message("globalMessage","تم حفظ بيانات المنتج والصورة دون تغيير كمية المخزون.");await loadProducts();
 }
