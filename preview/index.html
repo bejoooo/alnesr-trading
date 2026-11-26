@@ -1170,14 +1170,14 @@ function applyReportPreset(){
  if(preset==="month"){start=reportDate(new Date(now.getFullYear(),now.getMonth(),1));}
  $("reportFrom").value=start;$("reportTo").value=end;
 }
-async function fetchReportRows(table,fields,dateField,from,to,extra){
+async function fetchReportRows(table,fields,dateField,from,to,extra,orderField="id"){
  let rows=[],start=0,batch=1000;
  while(true){
   let q=client.from(table).select(fields).eq("business_id",activeBusinessId);
   if(dateField&&from)q=q.gte(dateField,from);
   if(dateField&&to)q=q.lte(dateField,to);
   if(extra)q=extra(q);
-  if(dateField)q=q.order(dateField,{ascending:true});q=q.order("id",{ascending:true});const {data,error}=await q.range(start,start+batch-1);
+  if(dateField)q=q.order(dateField,{ascending:true});if(orderField)q=q.order(orderField,{ascending:true});const {data,error}=await q.range(start,start+batch-1);
   if(error)throw error;
   const part=data||[];rows=rows.concat(part);
   if(part.length<batch)break;
@@ -1235,7 +1235,7 @@ async function loadReports(){
   if(permission("inventory.view")&&permission("products.view"))tasks.push(fetchAllRows(()=>client.from("product_stock_balances").select("product_id,code,name,unit,minimum_stock,quantity_on_hand,average_cost,stock_value,below_minimum,has_stock_history,out_of_stock").eq("business_id",activeBusinessId).order("product_id",{ascending:true})).then(({data,error})=>{if(error)throw error;reportData.stock=data||[];}));else reportData.stock=[];
   if(permission("parties.view")){const {data,error}=await fetchAllRows(()=>client.from("parties").select("id,name,kind,phone,customer_type").eq("business_id",activeBusinessId).order("name").order("id",{ascending:true}));if(error)throw error;reportData.parties=data||[];}else reportData.parties=[];
   const canViewFullPartyLedger=permission("parties.view")&&permission("sales.view")&&permission("purchases.view")&&permission("payments.view");
-  if(canViewFullPartyLedger){const [b,sr]=await Promise.all([fetchAllRows(()=>client.from("party_account_balances").select("party_id,kind,name,phone,opening_balance,sales_total,purchases_total,customer_payments,supplier_payments,returns_total,customer_net_balance,supplier_net_balance").eq("business_id",activeBusinessId).order("party_id",{ascending:true})),fetchReportRows("party_account_statement","party_id,party_name,entry_type,reference_no,entry_date,debit,credit,description","entry_date",from,to)]);if(b.error)throw b.error;reportData.partyBalances=b.data||[];reportData.statements=sr;}else{reportData.partyBalances=[];reportData.statements=[];}
+  if(canViewFullPartyLedger){const [b,sr]=await Promise.all([fetchAllRows(()=>client.from("party_account_balances").select("party_id,kind,name,phone,opening_balance,sales_total,purchases_total,customer_payments,supplier_payments,returns_total,customer_net_balance,supplier_net_balance").eq("business_id",activeBusinessId).order("party_id",{ascending:true})),fetchReportRows("party_account_statement","party_id,party_name,entry_type,reference_no,entry_date,debit,credit,description","entry_date",from,to,null,"entry_id")]);if(b.error)throw b.error;reportData.partyBalances=b.data||[];reportData.statements=sr;}else{reportData.partyBalances=[];reportData.statements=[];}
   await Promise.all(tasks);
   reportData.salesItems=[];
   if(permission("sales.view")&&reportData.sales.length){
