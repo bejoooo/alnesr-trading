@@ -1272,7 +1272,7 @@ function renderReports(from,to){
  const salesPaid=d.payments.filter(x=>((x.invoice_id&&salesInvoiceIds.has(x.invoice_id))||(x.invoice_id===null&&x.party_account_type==="customer"&&!x.sales_return_id))).reduce((sum,x)=>sum+(x.direction==="in"?1:-1)*Number(x.amount||0),0);
  const purchasePaid=d.payments.filter(x=>((x.invoice_id&&purchaseInvoiceIds.has(x.invoice_id))||(x.invoice_id===null&&x.party_account_type==="supplier"&&!x.sales_return_id))).reduce((sum,x)=>sum+(x.direction==="out"?1:-1)*Number(x.amount||0),0);
  const expense=reportSum(d.expenses,"amount"),returns=reportSum(d.returns,"refund_total"),purchaseReturnsTotal=reportSum(d.purchaseReturns,"total");
- const operatingCashRows=buildOperatingMoneyRows(d.payments,d.cash,from,to);
+ const operatingCashRows=buildOperatingMoneyRows(visibleReportPayments(),d.cash,from,to);
  const operatingIn=operatingCashRows.filter(x=>x.direction==="in").reduce((sum,x)=>sum+Number(x.amount||0),0);
  const operatingOut=operatingCashRows.filter(x=>x.direction==="out").reduce((sum,x)=>sum+Number(x.amount||0),0);
  const currentSalesDue=reportSum(d.sales,"due_total"),currentPurchaseDue=reportSum(d.purchases,"due_total");
@@ -1327,7 +1327,7 @@ function exportReportsExcel(){
 
  if(permission("treasury_transfer.view"))add("تحويلات_الأرصدة",map(d.treasuryTransfers||[],x=>({التاريخ:x.transfer_date,كود_التحويل:x.transfer_code,من:x.source_method,إلى:x.destination_method,المبلغ:x.amount,ملاحظات:x.notes})));
  if(permission("cash.view")&&permission("payments.view")){
-  const moneyRows=buildOperatingMoneyRows(d.payments,d.cash,from,to);
+  const moneyRows=buildOperatingMoneyRows(visibleReportPayments(),d.cash,from,to);
   add("ملخص_حركة_الأموال",[{البند:"إجمالي الداخل بكل الوسائل",القيمة:moneyRows.filter(x=>x.direction==="in").reduce((a,x)=>a+Number(x.amount||0),0)},{البند:"إجمالي الخارج بكل الوسائل",القيمة:moneyRows.filter(x=>x.direction==="out").reduce((a,x)=>a+Number(x.amount||0),0)},{ملاحظة:"تم استبعاد التحويلات الداخلية بين وسائل الدفع ومنع تكرار حركات الخزنة المرتبطة بالدفعات."}]);
  }
  if(permission("expenses.view"))add("المصروفات",map(d.expenses,x=>({التاريخ:x.expense_date,المصروف:x.name,المبلغ:x.amount,الحالة:x.status==="void"?"ملغي":"مسجل",ملاحظات:x.notes})));
