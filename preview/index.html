@@ -1213,6 +1213,7 @@ async function loadReports(){
  if(!activeBusinessId)return;
  const from=$("reportFrom").value,to=$("reportTo").value;
  if(!from||!to||from>to)return message("globalMessage","حدد نطاق تاريخ صحيح (من تاريخ إلى تاريخ).");
+ Object.keys(reportData).forEach(key=>delete reportData[key]);
  message("globalMessage","جارٍ تجهيز التقارير حسب صلاحيات حسابك...");
  $("reportResults").innerHTML='<p class="muted">جارٍ تحميل البيانات...</p>';
  try{
@@ -1263,7 +1264,7 @@ async function loadReports(){
   }
   renderReports(from,to);
   message("globalMessage","تم تحديث التقارير. راجع نطاق التاريخ وملاحظات كل قسم قبل الاعتماد.");
- }catch(e){console.error(e);$("reportResults").innerHTML='<p class="muted">تعذر تحميل التقارير: '+esc(e?.message||"خطأ غير معروف")+'</p>';fail(e);}
+ }catch(e){Object.keys(reportData).forEach(key=>delete reportData[key]);console.error(e);$("reportResults").innerHTML='<p class="muted">تعذر تحميل التقارير: '+esc(e?.message||"خطأ غير معروف")+'</p>';fail(e);}
 }
 function renderReports(from,to){
  const d=reportData,trackedStock=d.stock.filter(x=>x.has_stock_history),sales=reportSum(d.sales,"total"),purchases=reportSum(d.purchases,"total");
