@@ -1244,11 +1244,18 @@ function exportReportsExcel(){
  message("globalMessage","تم تجهيز ملف Excel بالتقارير المتاحة حسب صلاحيات حسابك.");
 }
 
-const backupTables=["products","parties","purchase_invoices","purchase_items","purchase_invoice_cost_snapshots","sales_invoices","sales_items","payments","stock_movements","stock_adjustment_cost_snapshots","sales_returns","sales_return_items","expenses","cash_transactions","business_settings","audit_log"];
+const backupTables=["products","parties","purchase_invoices","purchase_items","purchase_invoice_cost_snapshots","sales_invoices","sales_items","sales_returns","sales_return_items","purchase_returns","purchase_return_items","payments","customer_credit_ledger","stock_movements","stock_adjustment_cost_snapshots","treasury_transfers","cash_transactions","expenses","business_settings","audit_log"];
+const backupOrderColumns={
+ business_settings:["business_id"],
+ purchase_invoice_cost_snapshots:["invoice_id","product_id"],
+ stock_adjustment_cost_snapshots:["movement_id","product_id"]
+};
 async function fetchBackupRows(table){
  let rows=[],from=0,step=1000;
  while(true){
-  const {data,error}=await client.from(table).select("*").eq("business_id",activeBusinessId).order(table==="business_settings"?"business_id":"id",{ascending:true}).range(from,from+step-1);
+  let query=client.from(table).select("*").eq("business_id",activeBusinessId);
+  for(const column of (backupOrderColumns[table]||["id"]))query=query.order(column,{ascending:true});
+  const {data,error}=await query.range(from,from+step-1);
   if(error)throw error;
   rows.push(...(data||[]));
   if(!data||data.length<step)break;
@@ -1304,7 +1311,7 @@ async function exportBusinessBackup(){
   const tables={};
   for(const name of backupTables)tables[name]=await fetchBackupRows(name);
   const images=await exportProductImages(tables.products);
-  const backup={format_version:"alnesr-business-backup-v2",created_at:new Date().toISOString(),business_id:activeBusinessId,business_name:$("welcome").textContent,tables,images};
+  const backup={format_version:"alnesr-business-backup-v3",created_at:new Date().toISOString(),business_id:activeBusinessId,business_name:$("welcome").textContent,tables,images};
   const blob=new Blob([JSON.stringify(backup)],{type:"application/json"});
   if(blob.size>100*1024*1024)return message("globalMessage","حجم النسخة تجاوز الحد الحالي (100 ميجابايت). قلّل عدد/حجم الصور أو البيانات قبل إنشاء النسخة.");
   const url=URL.createObjectURL(blob),link=document.createElement("a");
@@ -1320,14 +1327,22 @@ async function restoreBusinessBackup(){
  if(file.size>100*1024*1024)return message("globalMessage","حجم الملف أكبر من الحد المسموح (100 ميجابايت).");
  let backup;
  try{backup=JSON.parse(await file.text());}catch(e){return message("globalMessage","الملف ليس JSON صالحًا.");}
- if(backup?.format_version!=="alnesr-business-backup-v2"||backup?.business_id!==activeBusinessId||!backup.tables||typeof backup.tables!=="object")return message("globalMessage","النسخة لا تخص هذا النشاط أو إصدارها غير مدعوم.");
- const requiredTables=["products","parties","purchase_invoices","purchase_items","purchase_invoice_cost_snapshots","sales_invoices","sales_items","payments","stock_movements","stock_adjustment_cost_snapshots","sales_returns","sales_return_items","expenses","cash_transactions","business_settings"];
+ if(!["alnesr-business-backup-v2","alnesr-business-backup-v3"].includes(backup?.format_version)||backup?.business_id!==activeBusinessId||!backup.tables||typeof backup.tables!=="object")return message("globalMessage","النسخة لا تخص هذا النشاط أو إصدارها غير مدعوم.");
+ const requiredTables=["products","parties","purchase_invoices","purchase_items","purchase_invoice_cost_snapshots","sales_invoices","sales_items","sales_returns","sales_return_items","payments","stock_movements","stock_adjustment_cost_snapshots","cash_transactions","expenses","business_settings",...(backup.format_version==="alnesr-business-backup-v3"?["purchase_returns","purchase_return_items","customer_credit_ledger","treasury_transfers"]:[])];
  if(requiredTables.some(name=>!Array.isArray(backup.tables[name]))||(backup.tables.audit_log!==undefined&&!Array.isArray(backup.tables.audit_log)))return message("globalMessage","النسخة ناقصة أو تحتوي جداول بصيغة غير صالحة.");
  const images=backup.images??[];
  if(!Array.isArray(images))return message("globalMessage","قائمة صور النسخة غير صالحة.");
- const productRows=backup.tables.products,productPaths=new Set(productRows.map(p=>p.image_path).filter(Boolean));
+ const productRows=backup.tables.products,productPaths=new Set();
  const seenPaths=new Set(),uuid="[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
  try{
+  for(const product of productRows){
+   if(!product||typeof product.id!=="string")throw new Error("بيانات أحد المنتجات في النسخة غير صالحة.");
+   if(!product.image_path)continue;
+   const parts=product.image_path.split("/");
+   if(parts.length!==3||parts[0]!==activeBusinessId||parts[1]!==product.id||!new RegExp("^"+uuid+"\\.(jpg|png|webp)$","i").test(parts[2]))throw new Error("مسار صورة أحد المنتجات لا يطابق النشاط والمنتج.");
+   if(productPaths.has(product.image_path))throw new Error("لا يمكن ربط أكثر من منتج بمسار الصورة نفسه.");
+   productPaths.add(product.image_path);
+  }
   for(const image of images){
    if(!image||typeof image.path!=="string"||!productPaths.has(image.path)||seenPaths.has(image.path)||!["image/jpeg","image/png","image/webp"].includes(image.type)||typeof image.data!=="string")throw new Error("ملف النسخة يحتوي صورة غير مرتبطة بمنتج في هذا النشاط.");
    const parts=image.path.split("/");
@@ -1341,7 +1356,8 @@ async function restoreBusinessBackup(){
   }
  }catch(e){return message("globalMessage",e.message||"بيانات الصور في النسخة غير صالحة.");}
  if(images.length!==productPaths.size)return message("globalMessage","النسخة لا تحتوي كل صور المنتجات المشار إليها. لن تتم الاستعادة حتى لا تظهر منتجات بصور مفقودة.");
- if(!confirm("تنبيه: الاستعادة متاحة فقط إذا كانت جداول بيانات هذا النشاط فارغة. سيتم رفع صور المنتجات الخاصة أولًا ثم استعادة البيانات داخل معاملة واحدة. هل تريد المتابعة؟"))return;
+ const legacyWarning=backup.format_version==="alnesr-business-backup-v2"?"\n\nملاحظة: هذه نسخة قديمة لا تحتوي مرتجعات المشتريات وسجل الرصيد الدائن وتحويلات الخزنة؛ ستُستعاد الجداول المتاحة فيها فقط، وستظل هذه الجداول الجديدة فارغة.":"";
+ if(!confirm("تنبيه: الاستعادة متاحة فقط إذا كانت جداول بيانات هذا النشاط فارغة. سيتم رفع صور المنتجات الخاصة أولًا ثم استعادة البيانات داخل معاملة واحدة."+legacyWarning+"\n\nهل تريد المتابعة؟"))return;
  message("globalMessage","جارٍ تجهيز صور النسخة داخل التخزين الخاص...");
  const uploaded=[];
  const cleanupUploaded=async()=>{
@@ -1364,8 +1380,8 @@ async function restoreBusinessBackup(){
  message("globalMessage","تم تجهيز الصور. جارٍ استعادة بيانات النشاط والتحقق من العلاقات...");
  const {data,error}=await client.rpc("restore_business_backup",{p_business_id:activeBusinessId,p_backup:backup});
  if(error){
-  const clean=await cleanupUploaded();
-  return message("globalMessage",clean?"فشلت استعادة البيانات وتم تنظيف الصور التي رُفعت. "+(error.message||""):"فشلت الاستعادة وتعذر تنظيف بعض الصور المرفوعة. لم تُستعد بيانات النشاط؛ تواصل مع الدعم قبل إعادة المحاولة.");
+  console.error("Backup restore result is uncertain; uploaded images are retained to avoid deleting files that may now be referenced by restored products.",error);
+  return message("globalMessage","تعذر تأكيد نتيجة الاستعادة من الخادم. احتفظنا بالصور المرفوعة لتجنب حذف صور قد تكون ارتبطت بمنتجات تمت استعادتها. لا تعِد المحاولة الآن؛ أعد تحميل النشاط وتحقق من وجود البيانات والصور أولًا، وإذا لم تكتمل الاستعادة نراجع الملفات المؤقتة بعد التأكد.");
  }
  $("backupFile").value="";
  message("globalMessage","تمت استعادة البيانات والصور. جارٍ تحديث الواجهة...");
