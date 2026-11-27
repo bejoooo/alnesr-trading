@@ -26,7 +26,7 @@ begin
     join pg_class c on c.oid=t.tgrelid
     join pg_namespace n on n.oid=c.relnamespace
     where n.nspname='public' and c.relname=v.table_name
-      and not t.tgisinternal and t.tgenabled <> 'D'
+      and not t.tgisinternal and t.tgenabled in ('O','A')
       and t.tgname=v.trigger_name
   );
 
