@@ -58,3 +58,8 @@
 أُضيف `PRODUCTION_FINALIZE_REQUIRED_COLUMNS_DRAFT.sql` بعد تركيب helpers/triggers. يفحص وجود Triggers الأكواد مفعّلة على الجداول الصحيحة، ويرفض وجود أي أكواد null بدل اختراع أكواد تاريخية. سعر `sales_return_items.unit_price` يُستكمل فقط من `sales_items.unit_price` عبر `sales_item_id` و`business_id`، ثم يتوقف إذا بقيت قيمة مجهولة. بعد ذلك فقط تُفرض NOT NULL على الأعمدة السبعة.
 
 تمت مراجعة أسماء الأعمدة وأنواعها وقيود nullability في Test مقابل Production قراءة فقط. Production لا تحتوي حاليًا أعمدة الأكواد أو unit_price الجديدة؛ مرحلة الأعمدة تضيفها nullable، والمرحلة الجديدة تؤجل فرض NOT NULL حتى يصبح Trigger موجودًا. لم تُنفذ أي UPDATE أو ALTER على قاعدة بيانات.
+
+
+### نطاق Views المستخدمة فعليًا
+
+تم البحث داخل `preview/index.html` في فرع development بطول 321,880 حرفًا؛ لا يوجد أي استدعاء لـ`daily_business_summary`. الواجهة تستخدم 6 Views تشغيلية/تقارير أخرى، وهي التي تغطيها `PRODUCTION_VIEWS_DRAFT.sql`. تعريف `daily_business_summary` يختلف بين Test وProduction، لكنه View قديم غير مستهلك حاليًا؛ تم استبعاده عمدًا لتجنب تغيير مكوّن خارج نطاق الواجهة الحالية.
