@@ -75,7 +75,22 @@ begin
     where reversal_of_movement_id is not null
     group by reversal_of_movement_id having count(*)>1)
     then raise exception 'Multiple stock reversals reference the same original movement'; end if;
-end $$;
+  if exists(select 1 from public.cash_transactions
+    where transaction_code is not null group by business_id,transaction_code having count(*)>1)
+    then raise exception 'Duplicate cash transaction codes'; end if;
+  if exists(select 1 from public.expenses
+    where expense_code is not null group by business_id,expense_code having count(*)>1)
+    then raise exception 'Duplicate expense codes'; end if;
+  if exists(select 1 from public.parties
+    where party_code is not null group by business_id,party_code having count(*)>1)
+    then raise exception 'Duplicate party codes'; end if;
+  if exists(select 1 from public.payments
+    where payment_code is not null group by business_id,payment_code having count(*)>1)
+    then raise exception 'Duplicate payment codes'; end if;
+  if exists(select 1 from public.stock_movements
+    where movement_code is not null group by business_id,movement_code having count(*)>1)
+    then raise exception 'Duplicate stock movement codes'; end if;
+end $;
 
 -- 2) Unique indexes: operation codes and one-to-one reversal/link protections.
 create unique index if not exists cash_one_original_per_purchase_return
