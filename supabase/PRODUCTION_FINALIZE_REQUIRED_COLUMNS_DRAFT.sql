@@ -9,7 +9,25 @@ begin;
 do $$
 declare
   missing_triggers text;
+  missing_columns text;
 begin
+  select string_agg(format('%I.%I',v.tbl,v.col), ', ' order by v.tbl,v.col)
+    into missing_columns
+  from (values
+    ('parties','party_code'),('payments','payment_code'),
+    ('cash_transactions','transaction_code'),('stock_movements','movement_code'),
+    ('expenses','expense_code'),('treasury_transfers','transfer_code'),
+    ('sales_return_items','unit_price'),('sales_return_items','sales_item_id'),
+    ('sales_return_items','business_id'),('sales_items','id'),
+    ('sales_items','business_id'),('sales_items','unit_price')
+  ) v(tbl,col)
+  where to_regclass(format('public.%I',v.tbl)) is null
+     or not exists(select 1 from information_schema.columns c
+       where c.table_schema='public' and c.table_name=v.tbl and c.column_name=v.col);
+  if missing_columns is not null then
+    raise exception 'Required columns are missing for finalization: %',missing_columns;
+  end if;
+
   select string_agg(v.trigger_name, ', ' order by v.trigger_name)
     into missing_triggers
   from (values
