@@ -90,7 +90,7 @@ begin
   if exists(select 1 from public.stock_movements
     where movement_code is not null group by business_id,movement_code having count(*)>1)
     then raise exception 'Duplicate stock movement codes'; end if;
-end $;
+end $$;
 
 -- 2) Unique indexes: operation codes and one-to-one reversal/link protections.
 create unique index if not exists cash_one_original_per_purchase_return
