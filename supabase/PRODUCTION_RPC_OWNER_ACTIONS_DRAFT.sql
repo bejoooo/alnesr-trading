@@ -1,7 +1,7 @@
 -- DRAFT ONLY — owner management, archive, reversal, and void RPC batch
 -- Exact function definitions extracted from the current Test schema.
 -- Destructive owner actions are preserved only with their existing guards and audit records.
--- reset_business_data and restore_business_backup are intentionally excluded from this batch.
+-- reset_business_data is included because the current Preview UI calls it; its definition is installed only (never invoked during upgrade). restore_business_backup remains a separate high-risk path.
 
 begin;
 set local search_path = pg_catalog, public;
@@ -13,6 +13,7 @@ begin
   from (values
     ('public.audit_log'),
     ('public.business_members'),
+    ('public.business_settings'),
     ('public.cash_balances'),
     ('public.cash_transactions'),
     ('public.customer_credit_ledger'),
@@ -1417,6 +1418,79 @@ $function$;
 
 revoke all on function public.owner_void_purchase_return(uuid,uuid) from public, anon, authenticated;
 grant execute on function public.owner_void_purchase_return(uuid,uuid) to authenticated, service_role;
+
+
+-- reset_business_data(uuid)
+-- Required by the current Preview danger-zone UI. Installing this RPC does NOT execute it.
+-- It is owner-only and preserves the business + owner membership while deleting business-scoped
+-- operational records and writing a final audit event. Never call it as part of the upgrade.
+CREATE OR REPLACE FUNCTION public.reset_business_data(p_business_id uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare v_counts jsonb;
+begin
+ if auth.uid() is null then raise exception 'يجب تسجيل الدخول قبل تصفير بيانات النشاط'; end if;
+ if not exists(select 1 from public.business_members m where m.business_id=p_business_id
+   and m.user_id=auth.uid() and m.active=true and m.role='owner') then
+  raise exception 'تصفير البيانات متاح لمالك النشاط فقط';
+ end if;
+ perform pg_advisory_xact_lock(hashtextextended(p_business_id::text,0));
+ select jsonb_build_object(
+  'products',(select count(*) from public.products where business_id=p_business_id),
+  'parties',(select count(*) from public.parties where business_id=p_business_id),
+  'purchase_invoices',(select count(*) from public.purchase_invoices where business_id=p_business_id),
+  'sales_invoices',(select count(*) from public.sales_invoices where business_id=p_business_id),
+  'returns',(select count(*) from public.sales_returns where business_id=p_business_id),
+  'purchase_returns',(select count(*) from public.purchase_returns where business_id=p_business_id),
+  'purchase_return_items',(select count(*) from public.purchase_return_items where business_id=p_business_id),
+  'customer_credit_ledger',(select count(*) from public.customer_credit_ledger where business_id=p_business_id),
+  'treasury_transfers',(select count(*) from public.treasury_transfers where business_id=p_business_id),
+  'payments',(select count(*) from public.payments where business_id=p_business_id),
+  'stock_movements',(select count(*) from public.stock_movements where business_id=p_business_id),
+  'expenses',(select count(*) from public.expenses where business_id=p_business_id),
+  'cash_transactions',(select count(*) from public.cash_transactions where business_id=p_business_id),
+  'purchase_cost_snapshots',(select count(*) from public.purchase_invoice_cost_snapshots where business_id=p_business_id),
+  'stock_cost_snapshots',(select count(*) from public.stock_adjustment_cost_snapshots where business_id=p_business_id)
+ ) into v_counts;
+
+ delete from public.expenses where business_id=p_business_id;
+ delete from public.cash_transactions where business_id=p_business_id and reversal_of_transaction_id is not null;
+ delete from public.cash_transactions where business_id=p_business_id;
+ delete from public.customer_credit_ledger where business_id=p_business_id and reversal_of_id is not null;
+ delete from public.customer_credit_ledger where business_id=p_business_id;
+ delete from public.payments where business_id=p_business_id and reversal_of_payment_id is not null;
+ delete from public.payments where business_id=p_business_id;
+ delete from public.purchase_return_items where business_id=p_business_id;
+ delete from public.purchase_returns where business_id=p_business_id;
+ delete from public.treasury_transfers where business_id=p_business_id and reversal_of_transfer_id is not null;
+ delete from public.treasury_transfers where business_id=p_business_id;
+ delete from public.sales_return_items where business_id=p_business_id;
+ delete from public.sales_returns where business_id=p_business_id;
+ delete from public.purchase_invoice_cost_snapshots where business_id=p_business_id;
+ delete from public.stock_adjustment_cost_snapshots where business_id=p_business_id;
+ delete from public.stock_movements where business_id=p_business_id and reversal_of_movement_id is not null;
+ delete from public.stock_movements where business_id=p_business_id;
+ delete from public.sales_items where business_id=p_business_id;
+ delete from public.purchase_items where business_id=p_business_id;
+ delete from public.sales_invoices where business_id=p_business_id;
+ delete from public.purchase_invoices where business_id=p_business_id;
+ delete from public.parties where business_id=p_business_id;
+ delete from public.products where business_id=p_business_id;
+ delete from public.business_settings where business_id=p_business_id;
+ delete from public.audit_log where business_id=p_business_id;
+
+ insert into public.audit_log(business_id,actor_id,action,entity_type,details)
+ values(p_business_id,auth.uid(),'business_data_reset','business',
+  jsonb_build_object('deleted_counts',v_counts,'reset_at',now()));
+ return jsonb_build_object('success',true,'deleted_counts',v_counts);
+end;
+$function$;
+
+revoke all on function public.reset_business_data(uuid) from public, anon, authenticated;
+grant execute on function public.reset_business_data(uuid) to authenticated, service_role;
 
 commit;
 
