@@ -221,7 +221,30 @@ begin
     join public.products parent on parent.id = child.product_id
     where child.business_id <> parent.business_id
   ) then raise exception 'Preflight failed: stock cost snapshot product crosses business boundary'; end if;
-end $$;
+  if exists (
+    select 1 from public.payments child
+    join public.purchase_returns parent on parent.id = child.purchase_return_id
+    where child.purchase_return_id is not null and child.business_id <> parent.business_id
+  ) then raise exception 'Preflight failed: payment purchase return crosses business boundary'; end if;
+
+  if exists (
+    select 1 from public.payments child
+    join public.sales_returns parent on parent.id = child.sales_return_id
+    where child.sales_return_id is not null and child.business_id <> parent.business_id
+  ) then raise exception 'Preflight failed: payment sales return crosses business boundary'; end if;
+
+  if exists (
+    select 1 from public.cash_transactions child
+    join public.purchase_returns parent on parent.id = child.purchase_return_id
+    where child.purchase_return_id is not null and child.business_id <> parent.business_id
+  ) then raise exception 'Preflight failed: cash transaction purchase return crosses business boundary'; end if;
+
+  if exists (
+    select 1 from public.cash_transactions child
+    join public.sales_returns parent on parent.id = child.sales_return_id
+    where child.sales_return_id is not null and child.business_id <> parent.business_id
+  ) then raise exception 'Preflight failed: cash transaction sales return crosses business boundary'; end if;
+end $;
 
 -- 3) Add missing composite FKs as NOT VALID first.
 -- MATCH SIMPLE remains PostgreSQL's default: nullable reference columns are permitted.
@@ -346,7 +369,30 @@ begin
       foreign key (business_id, product_id)
       references public.products (business_id, id) on delete restrict not valid;
   end if;
-end $$;
+  if not exists (select 1 from pg_constraint where conrelid='public.payments'::regclass and conname='payments_purchase_return_same_business_fk') then
+    alter table public.payments add constraint payments_purchase_return_same_business_fk
+      foreign key (business_id, purchase_return_id)
+      references public.purchase_returns (business_id, id) not valid;
+  end if;
+
+  if not exists (select 1 from pg_constraint where conrelid='public.payments'::regclass and conname='payments_sales_return_same_business_fk') then
+    alter table public.payments add constraint payments_sales_return_same_business_fk
+      foreign key (business_id, sales_return_id)
+      references public.sales_returns (business_id, id) not valid;
+  end if;
+
+  if not exists (select 1 from pg_constraint where conrelid='public.cash_transactions'::regclass and conname='cash_purchase_return_same_business_fk') then
+    alter table public.cash_transactions add constraint cash_purchase_return_same_business_fk
+      foreign key (business_id, purchase_return_id)
+      references public.purchase_returns (business_id, id) not valid;
+  end if;
+
+  if not exists (select 1 from pg_constraint where conrelid='public.cash_transactions'::regclass and conname='cash_sales_return_same_business_fk') then
+    alter table public.cash_transactions add constraint cash_sales_return_same_business_fk
+      foreign key (business_id, sales_return_id)
+      references public.sales_returns (business_id, id) not valid;
+  end if;
+end $;
 
 -- 4) Validate all constraints only after the preflight and index creation succeed.
 alter table public.payments validate constraint payments_reversal_same_business_fk;
@@ -369,5 +415,9 @@ alter table public.purchase_invoice_cost_snapshots validate constraint purchase_
 alter table public.purchase_invoice_cost_snapshots validate constraint purchase_cost_snapshot_product_same_business_fk;
 alter table public.stock_adjustment_cost_snapshots validate constraint stock_cost_snapshot_movement_same_business_fk;
 alter table public.stock_adjustment_cost_snapshots validate constraint stock_cost_snapshot_product_same_business_fk;
+alter table public.payments validate constraint payments_purchase_return_same_business_fk;
+alter table public.payments validate constraint payments_sales_return_same_business_fk;
+alter table public.cash_transactions validate constraint cash_purchase_return_same_business_fk;
+alter table public.cash_transactions validate constraint cash_sales_return_same_business_fk;
 
 commit;
