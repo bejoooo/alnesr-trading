@@ -177,7 +177,8 @@ declare
   v_other numeric(14,2) := 0;
 begin
   if auth.uid() is null
-    or not public.has_business_permission(p_business_id,'treasury_transfer.view')
+    or not public.has_business_permission(p_business_id,'cash.view')
+    or not public.has_business_permission(p_business_id,'payments.view')
   then raise exception 'Not authorized to view treasury balances'; end if;
 
   select coalesce(cb.balance,0)::numeric(14,2) into v_cash
@@ -354,6 +355,9 @@ begin
   if p_method not in ('cash','bank_transfer','instapay','mobile_wallet','other') then
     raise exception 'Unsupported payment method';
   end if;
+  if p_method='cash' and not public.has_business_permission(p_business_id,'cash.create') then
+    raise exception 'Not authorized to change cash balance';
+  end if;
   perform pg_advisory_xact_lock(hashtextextended(p_business_id::text,0));
   if p_invoice_type='sale' then
     v_direction:='in'; v_permission:='sales.view';
@@ -368,10 +372,6 @@ begin
   end if;
   if not found then raise exception 'Invoice not found in this business'; end if;
   if v_status='void' then raise exception 'Cannot record a payment against a cancelled invoice'; end if;
-  if p_method='cash' and not public.has_business_permission(p_business_id,
-    case when v_direction='in' then 'cash.create' else 'cash.withdraw' end) then
-    raise exception 'Not authorized to change cash balance';
-  end if;
   if not public.has_business_permission(p_business_id,v_permission) then raise exception 'Not authorized'; end if;
   if p_amount>v_due then raise exception 'Payment exceeds outstanding amount'; end if;
   if v_direction='out' then
@@ -463,8 +463,7 @@ begin
  if p_account_type='supplier' and v_party.kind not in ('supplier','both') then
   raise exception 'This account is not configured as a supplier';
  end if;
- if p_method='cash' and not public.has_business_permission(p_business_id,
-   case when v_direction='in' then 'cash.create' else 'cash.withdraw' end) then
+ if p_method='cash' and not public.has_business_permission(p_business_id,'cash.create') then
   raise exception 'Not authorized to change cash balance';
  end if;
  perform pg_advisory_xact_lock(hashtextextended(p_business_id::text,0));
