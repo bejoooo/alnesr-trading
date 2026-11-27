@@ -77,3 +77,12 @@
 ### فروق صلاحيات Preview مقابل Test — تنبيه قبل حسابات الموظفين
 
 مقارنة أجسام RPC كشفت 4 اختلافات موثقة في `get_treasury_balances` و`record_invoice_payment` و`record_standalone_party_payment` و`post_purchase_with_method`. مسودات الترقية الحالية تتبع شروط الواجهة الحالية في Preview، بينما بعض دوال Test تستخدم شروطًا مختلفة (خاصة cash.withdraw مقابل cash.create، وtreasury_transfer.view مقابل cash.view + payments.view). لا تغيّر هذه المسودات الواجهة، ولا يوجد موظفون حاليًا؛ يجب حسم سياسة التفويض واختبارها بحسابات أدوار قبل إنشاء حسابات موظفين.
+
+### تحديث مسار الاختبار المحلي — 27 نوفمبر 2026
+
+- راجعت محتويات مجلد `supabase/` في الفرع التحضيري: لا يوجد حاليًا `config.toml` أو `config.json` أو `config.jsonc`، ولا يوجد إعداد Local Supabase جاهز أو مجلد migrations قياسي؛ ملفات SQL الحالية مرقمة مباشرة داخل `supabase/`.
+- النسخة الاحتياطية المحفوظة هي Custom archive ناتجة عن `pg_dump -Fc`، وليست Supabase database backup image التي توضح وثائق `supabase db start --from-backup` طريقة تشغيلها. لذلك لا نستخدم `--from-backup` مع ملف `.dump` الحالي.
+- مسار الاختبار الآمن المحتمل: إنشاء مشروع Supabase محلي مؤقت في مجلد منفصل عن المستودع، وتشغيله على Windows باستخدام Docker Desktop، ثم تقييم استعادة الـCustom archive إلى قاعدة محلية منفصلة باستخدام `pg_restore` بعد فحص قائمة TOC والاعتماديات والأدوار والامتدادات. لا يُنفذ هذا قبل تحديد طريقة استعادة متوافقة مع مخططات Supabase المحجوزة مثل `auth` و`storage` و`vault`.
+- تثبيت PostgreSQL 17.12 وحده يوفّر أدوات `pg_dump/pg_restore` لكنه لا يشغّل خدمات Supabase المحلية (Auth/Storage/API). يلزم Docker Desktop أو runtime متوافق على Windows لتشغيل Local Supabase Stack بالطريقة القياسية.
+- تنبيه CLI: تغيّر Supabase CLI v3 في نوفمبر 2026 بحيث تستهدف أوامر قواعد البيانات البيئة المحلية افتراضيًا، وتحتاج `--remote` صراحةً للوصول إلى مشروع مستضاف. كل أوامر الاختبار المقترحة يجب أن تبقى محلية، ويُمنع إضافة `--remote` أو ربط المجلد المؤقت بمشروع Production.
+- لم يتم تثبيت CLI أو Docker، ولم يتم تشغيل أي استعادة أو SQL نتيجة هذه المراجعة. لا توجد تغييرات على Test أو Production.
