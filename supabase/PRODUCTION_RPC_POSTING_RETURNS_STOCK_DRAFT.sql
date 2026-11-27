@@ -250,7 +250,7 @@ begin
  end if;
  if v_paid>0 then
   if v_method='cash' then
-   if not public.has_business_permission(p_business_id,'cash.withdraw') then raise exception 'Not authorized to record the cash payment'; end if;
+   if not public.has_business_permission(p_business_id,'cash.create') then raise exception 'Not authorized to record the cash payment'; end if;
   else
    if not public.has_business_permission(p_business_id,'payments.create') then raise exception 'Not authorized to record this payment method'; end if;
   end if;
