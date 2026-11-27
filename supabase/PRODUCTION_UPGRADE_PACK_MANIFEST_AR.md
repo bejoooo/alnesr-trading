@@ -26,6 +26,7 @@
 | 4 | `PRODUCTION_STRUCTURAL_FK_DRAFT.sql` | مفاتيح/FKs مركبة same-business، مع فحوص cross-business | مسودة معدّلة |
 | 5 | `PRODUCTION_HELPER_FUNCTIONS_TRIGGERS_DRAFT.sql` | دوال الأكواد والعدادات وTriggers الترقيم | مسودة |
 | 5A | `PRODUCTION_HELPER_FUNCTIONS_HARDENING_PATCH.sql` | تقوية helpers بعد مراجعة تعريفاتها | مسودة |
+| 5B | `PRODUCTION_FINALIZE_REQUIRED_COLUMNS_DRAFT.sql` | بعد تفعيل Triggers الأكواد: فرض NOT NULL للأكواد وسعر بند المرتجع بعد جلب السعر الأصلي فقط | مسودة جديدة |
 | 6 | `PRODUCTION_VIEWS_DRAFT.sql` | تحديث Views الأرصدة والمخزون وكشف الحساب | مسودة |
 | 7 | `PRODUCTION_RPC_TREASURY_PAYMENTS_DRAFT.sql` | RPC الخزنة والمدفوعات والمصروفات | مسودة |
 | 8 | `PRODUCTION_RPC_POSTING_RETURNS_STOCK_DRAFT.sql` | RPC الشراء والبيع والمرتجعات والمخزون | مسودة |
@@ -45,6 +46,7 @@
 3. التحقق من عدم وجود روابط بين نشاطين قبل اعتماد FKs المركبة.
 4. مطابقة RLS وACL وSECURITY DEFINER وsearch_path لكل RPC.
 5. فحص الصيغ المحاسبية: لا تُعدّل طريقة التكلفة المختبرة؛ قارن تعريفات Test ولا تعِد صياغتها.
+6. مرحلة 5B لا تخترع أكوادًا أو أسعارًا؛ تتوقف إذا ظهر سجل بلا كود أو بلا بند بيع أصلي يمكن أخذ سعره منه.
 6. لا تعتبر نجاح فاحص الكتالوج أو المراجعة الساكنة اختبارًا وظيفيًا.
 
 ## حدود الاختبار المتاحة حاليًا
@@ -60,5 +62,6 @@
 - إضافة أربعة روابط مركبة same-business: purchase_return_id وsales_return_id في payments وcash_transactions.
 - إضافة مسودة الفهارس وقيود CHECK الناقصة.
 - إضافة مسودة ACL ضيقة لعمود businesses.tagline وسياسة payments_read.
+- إضافة مرحلة نهائية محمية لاشتراط الأكواد وسعر بند المرتجع بعد وجود Triggers، مع backfill من sales_items.unit_price فقط عند تطابق business_id وsales_item_id.
 - تحديث بوابة متوسط التكلفة: المستخدم أكد اعتماد منطق Preview المختبر دون تغيير.
 - لا توجد تغييرات على قواعد البيانات أو Auth أو Storage أو Edge Functions أو ملفات الواجهة.
