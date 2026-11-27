@@ -1,8 +1,9 @@
 -- DRAFT ONLY — production helper functions and missing trigger stage
 -- Prerequisites (must be applied in order, not by this file):
---   1) PRODUCTION_NEW_TABLES_DRAFT.sql
---   2) PRODUCTION_MISSING_COLUMNS_DRAFT.sql
---   3) PRODUCTION_STRUCTURAL_FK_DRAFT.sql
+--   1) PRODUCTION_MISSING_COLUMNS_DRAFT.sql
+--   2) PRODUCTION_NEW_TABLES_DRAFT.sql
+--   3) PRODUCTION_INDEXES_CHECKS_DRAFT.sql
+--   4) PRODUCTION_STRUCTURAL_FK_DRAFT.sql
 -- This file is an additive draft. It has NOT been executed on Test or Production.
 -- It does not recreate financial RPCs, views, or existing triggers.
 
