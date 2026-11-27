@@ -30,13 +30,13 @@
 | 6 | `PRODUCTION_VIEWS_DRAFT.sql` | تحديث Views الأرصدة والمخزون وكشف الحساب | مسودة |
 | 7 | `PRODUCTION_RPC_TREASURY_PAYMENTS_DRAFT.sql` | RPC الخزنة والمدفوعات والمصروفات | مسودة |
 | 8 | `PRODUCTION_RPC_POSTING_RETURNS_STOCK_DRAFT.sql` | RPC الشراء والبيع والمرتجعات والمخزون | مسودة |
-| 9 | `PRODUCTION_RPC_OWNER_ACTIONS_DRAFT.sql` | الأرشفة والعكس والإلغاء وإجراءات المالك | مسودة |
+| 9 | `PRODUCTION_RPC_OWNER_ACTIONS_DRAFT.sql` | الأرشفة والعكس والإلغاء وإجراءات المالك، ويشمل `reset_business_data` لأن Preview تستدعيه؛ تثبيت التعريف لا يستدعيه | مسودة |
 | 10 | `PRODUCTION_BACKUP_RESTORE_DRAFT.sql` | توافق استعادة Backup v2/v3 | مسار منفصل واختبار مستقل مطلوب |
 | 11 | `PRODUCTION_SECURITY_DEFINER_SEARCH_PATH_PATCH.sql` | توحيد search_path للدوال المشتركة القديمة | مسودة |
 | 12 | `PRODUCTION_ACL_RLS_ALIGNMENT_DRAFT.sql` | صلاحية tagline وسياسة قراءة المدفوعات المطابقة للاختبار | مسودة جديدة |
 | 13 | ملفات `verify_production_*.sql` | فحوص بنية وACL وViews وRPCs بعد كل مرحلة | قراءة فقط |
 
-**مستبعد من مسار الترقية العادي:** `PRODUCTION_RESET_BUSINESS_DATA_DRAFT.sql`. لا حاجة لتصفير Production؛ لا تشغّل دالة reset.  
+**مستبعد من مسار الترقية العادي:** ملف `PRODUCTION_RESET_BUSINESS_DATA_DRAFT.sql` المنفصل وأي استدعاء فعلي للتصفير. تعريف RPC `reset_business_data(uuid)` موجود داخل دفعة Owner Actions فقط لتوافق الواجهة الحالية؛ لا يتم استدعاؤه أثناء الترقية أو الاختبار. يتطلب قرارًا أمنيًا إضافيًا قبل Go-Live لأن إعادة التحقق من كلمة المرور وعبارة التأكيد حاليًا تتم في الواجهة، بينما RPC نفسها تتحقق من عضوية المالك فقط.  
 **مسار النشر:** Edge Function الحالية `app-preview` وGitHub Pages يظلان دون تغيير حتى اكتمال القاعدة وموافقة مستقلة على مسار التحويل.
 
 ## نقاط تحقق قبل اعتماد أي ملف
@@ -64,4 +64,5 @@
 - إضافة مسودة ACL ضيقة لعمود businesses.tagline وسياسة payments_read.
 - إضافة مرحلة نهائية محمية لاشتراط الأكواد وسعر بند المرتجع بعد وجود Triggers، مع backfill من sales_items.unit_price فقط عند تطابق business_id وsales_item_id.
 - تحديث بوابة متوسط التكلفة: المستخدم أكد اعتماد منطق Preview المختبر دون تغيير.
+- أضيفت دالة `reset_business_data(uuid)` إلى دفعة Owner Actions بعد اكتشاف أن Preview تستدعيها؛ الإضافة تعريف فقط ولا تنفّذ التصفير. يلزم قبل Go-Live حسم حماية التأكيد على مستوى الخادم، لأن فحص كلمة المرور وعبارة التأكيد حاليًا في الواجهة فقط.
 - لا توجد تغييرات على قواعد البيانات أو Auth أو Storage أو Edge Functions أو ملفات الواجهة.
