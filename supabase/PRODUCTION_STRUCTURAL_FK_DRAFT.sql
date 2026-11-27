@@ -8,7 +8,7 @@
 begin;
 
 -- Stop explicitly if the prerequisite additive schema stage is incomplete.
-do $
+do $$
 declare missing text;
 begin
   select string_agg(format('%I.%I', v.tbl, v.col), ', ' order by v.tbl, v.col)
@@ -46,12 +46,12 @@ begin
   if missing is not null then
     raise exception 'Preflight failed: prerequisite tables/columns missing: %', missing;
   end if;
-end $;
+end $$;
 
 
 -- Confirm the remaining composite target indexes are already supplied by the
 -- prerequisite schema stage. The four indexes created below are intentionally excluded.
-do $
+do $$
 declare missing_targets text;
 begin
   select string_agg(v.tbl, ', ' order by v.tbl)
@@ -73,7 +73,7 @@ begin
   if missing_targets is not null then
     raise exception 'Preflight failed: missing unique (business_id, id) target indexes on: %', missing_targets;
   end if;
-end $;
+end $$;
 
 -- 1) Candidate composite-key targets not currently unique on (business_id, id).
 -- The single-column PKs remain in place.
@@ -244,7 +244,7 @@ begin
     join public.sales_returns parent on parent.id = child.sales_return_id
     where child.sales_return_id is not null and child.business_id <> parent.business_id
   ) then raise exception 'Preflight failed: cash transaction sales return crosses business boundary'; end if;
-end $;
+end $$;
 
 -- 3) Add missing composite FKs as NOT VALID first.
 -- MATCH SIMPLE remains PostgreSQL's default: nullable reference columns are permitted.
@@ -392,7 +392,7 @@ begin
       foreign key (business_id, sales_return_id)
       references public.sales_returns (business_id, id) not valid;
   end if;
-end $;
+end $$;
 
 -- 4) Validate all constraints only after the preflight and index creation succeed.
 alter table public.payments validate constraint payments_reversal_same_business_fk;
