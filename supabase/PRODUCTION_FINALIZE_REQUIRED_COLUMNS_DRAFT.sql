@@ -13,19 +13,20 @@ begin
   select string_agg(v.trigger_name, ', ' order by v.trigger_name)
     into missing_triggers
   from (values
-    ('cash_transactions_assign_code'),
-    ('expenses_assign_code'),
-    ('parties_assign_code'),
-    ('payments_assign_code'),
-    ('stock_movements_assign_code'),
-    ('treasury_transfers_assign_code')
-  ) v(trigger_name)
+    ('cash_transactions_assign_code','cash_transactions'),
+    ('expenses_assign_code','expenses'),
+    ('parties_assign_code','parties'),
+    ('payments_assign_code','payments'),
+    ('stock_movements_assign_code','stock_movements'),
+    ('treasury_transfers_assign_code','treasury_transfers')
+  ) v(trigger_name,table_name)
   where not exists (
     select 1
     from pg_trigger t
     join pg_class c on c.oid=t.tgrelid
     join pg_namespace n on n.oid=c.relnamespace
-    where n.nspname='public' and not t.tgisinternal
+    where n.nspname='public' and c.relname=v.table_name
+      and not t.tgisinternal and t.tgenabled <> 'D'
       and t.tgname=v.trigger_name
   );
 
