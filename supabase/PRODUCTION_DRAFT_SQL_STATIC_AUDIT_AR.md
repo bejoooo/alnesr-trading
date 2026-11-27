@@ -26,3 +26,28 @@
 ## ترتيب المرحلة
 
 بعد الجداول والأعمدة والعلاقات: شغّل helper base draft ثم `PRODUCTION_HELPER_FUNCTIONS_HARDENING_PATCH.sql`، ثم `verify_production_helper_functions.sql` على قاعدة اختبار معزولة. لا تُشغّل هذا الفاحص على Test الحالية قبل الترقية، ولا على Production قبل الموافقة الصريحة.
+
+
+## تحديث 27 نوفمبر 2026 — استكمال مراجعة الفهارس والقيود والعلاقات
+
+تمت إضافة مسودات تحضيرية على الفرع `production-upgrade-prep-2026-11-27` فقط:
+
+- `PRODUCTION_INDEXES_CHECKS_DRAFT.sql`: يطابق 13 فهرسًا فريدًا و8 فهارس غير فريدة مع تعريفات Test المستخرجة من `pg_get_indexdef`. يتضمن فحوص تكرار قبل إنشاء الفهارس الفريدة، ويضيف قيود CHECK الناقصة مع `NOT VALID` ثم `VALIDATE`.
+- تم توثيق قيد `sales_return_items_unit_price_nonnegative` بالاسم الفعلي الموجود في Test؛ كان الاسم السابق المتداول في الملاحظات غير دقيق.
+- تم التأكد من أن Production لديها بالفعل مفاتيح فريدة مركبة على `(business_id,id)` للجداول الأساسية الخمسة: parties, products, purchase_invoices, sales_invoices, sales_returns. الجداول الجديدة purchase_returns وcustomer_credit_ledger وtreasury_transfers توفر المفاتيح المركبة ضمن تعريفاتها.
+- `PRODUCTION_STRUCTURAL_FK_DRAFT.sql`: تم إصلاح أول كتلتين PL/pgSQL كانتا تستخدمان محددات dollar-quoting غير مكتملة، وإضافة أربعة FKs مركبة مع preflight وvalidation:
+  - payments.purchase_return_id → purchase_returns
+  - payments.sales_return_id → sales_returns
+  - cash_transactions.purchase_return_id → purchase_returns
+  - cash_transactions.sales_return_id → sales_returns
+- `PRODUCTION_ACL_RLS_ALIGNMENT_DRAFT.sql`: يطابق سياسة payments_read مع تعريف Test، ويضيف صلاحية SELECT/UPDATE للعمود tagline فقط.
+
+### فحوص ساكنة أُجريت على المسودات الجديدة
+
+- كتل DO/dollar-quoting متوازنة في ملفي الفهارس والعلاقات.
+- كل ملف SQL جديد/معدل يحتوي حدود transaction متوازنة (BEGIN/COMMIT).
+- ملف الفهارس يحتوي 13 CREATE UNIQUE INDEX و8 CREATE INDEX.
+- ملف العلاقات يحتوي 4 مفاتيح فريدة مركبة مساعدة و4 FKs جديدة لروابط المرتجعات، مع فحوص cross-business والتحقق من القيود.
+- لا توجد عمليات DELETE أو TRUNCATE أو reset في المسودات الجديدة.
+
+**حدود الإثبات:** هذه مراجعة نصية/ساكنة وليست SQL parser أو تنفيذًا على PostgreSQL. لم تُشغّل أي مسودة على Test أو Production، ولم يتم إثبات الأداء أو التزامن أو السلوك الوظيفي. يجب إعادة فحص النص كاملًا واختباره على بيئة PostgreSQL معزولة قبل طلب موافقة الترقية.
