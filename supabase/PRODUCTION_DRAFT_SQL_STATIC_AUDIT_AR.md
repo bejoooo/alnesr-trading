@@ -51,3 +51,10 @@
 - لا توجد عمليات DELETE أو TRUNCATE أو reset في المسودات الجديدة.
 
 **حدود الإثبات:** هذه مراجعة نصية/ساكنة وليست SQL parser أو تنفيذًا على PostgreSQL. لم تُشغّل أي مسودة على Test أو Production، ولم يتم إثبات الأداء أو التزامن أو السلوك الوظيفي. يجب إعادة فحص النص كاملًا واختباره على بيئة PostgreSQL معزولة قبل طلب موافقة الترقية.
+
+
+### مرحلة NOT NULL والـBackfill الآمن
+
+أُضيف `PRODUCTION_FINALIZE_REQUIRED_COLUMNS_DRAFT.sql` بعد تركيب helpers/triggers. يفحص وجود Triggers الأكواد مفعّلة على الجداول الصحيحة، ويرفض وجود أي أكواد null بدل اختراع أكواد تاريخية. سعر `sales_return_items.unit_price` يُستكمل فقط من `sales_items.unit_price` عبر `sales_item_id` و`business_id`، ثم يتوقف إذا بقيت قيمة مجهولة. بعد ذلك فقط تُفرض NOT NULL على الأعمدة السبعة.
+
+تمت مراجعة أسماء الأعمدة وأنواعها وقيود nullability في Test مقابل Production قراءة فقط. Production لا تحتوي حاليًا أعمدة الأكواد أو unit_price الجديدة؛ مرحلة الأعمدة تضيفها nullable، والمرحلة الجديدة تؤجل فرض NOT NULL حتى يصبح Trigger موجودًا. لم تُنفذ أي UPDATE أو ALTER على قاعدة بيانات.
