@@ -15,7 +15,9 @@ begin
     into missing
   from (values
     ('payments','business_id'),('payments','reversal_of_payment_id'),
+    ('payments','purchase_return_id'),('payments','sales_return_id'),
     ('cash_transactions','business_id'),('cash_transactions','payment_id'),
+    ('cash_transactions','purchase_return_id'),('cash_transactions','sales_return_id'),
     ('cash_transactions','treasury_transfer_id'),('cash_transactions','reversal_of_transaction_id'),
     ('expenses','business_id'),('expenses','cash_transaction_id'),
     ('stock_movements','business_id'),('stock_movements','reversal_of_movement_id'),
